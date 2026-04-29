@@ -92,7 +92,7 @@ struct ControlView: View {
                                 HStack(spacing: 12) {
                                     Button(action: { send("start") }) { Text("Start") }
                                         .buttonStyle(PressButtonStyle(color: Theme.profit,
-                                                                      isActive: activeCmd == "start"))
+                                                                      isActive: botService.botStatus?.isRunning == true))
 
                                     Button(action: { send("pause") }) { Text("Pause") }
                                         .buttonStyle(PressButtonStyle(color: Theme.caution,
@@ -100,7 +100,7 @@ struct ControlView: View {
 
                                     Button(action: { send("stop") }) { Text("Stop") }
                                         .buttonStyle(PressButtonStyle(color: Theme.loss,
-                                                                      isActive: activeCmd == "stop"))
+                                                                      isActive: botService.botStatus?.isRunning == false))
                                 }
                             }
                             .padding()
