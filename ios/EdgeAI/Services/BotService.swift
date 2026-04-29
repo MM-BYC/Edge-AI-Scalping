@@ -35,11 +35,13 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         guard let wsURL = URL(string: url) else {
             connectionStatus = "Invalid URL"; isConnected = false; return
         }
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
+        // delegateQueue: nil → background serial queue; avoids forcing
+        // a sync hop onto the main actor from a completion-handler context.
+        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         webSocket = session.webSocketTask(with: wsURL)
         webSocket?.resume()
         connectionStatus = "Connecting..."
-        receiveMessages()
+        Task { await receiveLoop() }
     }
 
     func disconnect() {
@@ -50,25 +52,25 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
 
     // MARK: - Receive
 
-    private func receiveMessages() {
-        webSocket?.receive { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let message):
-                    switch message {
-                    case .string(let json):
-                        self?.handleMessage(json)
-                    case .data(let data):
-                        self?.handleMessage(String(data: data, encoding: .utf8) ?? "")
-                    @unknown default:
-                        break
-                    }
-                    self?.receiveMessages()
-
-                case .failure(let error):
-                    self?.connectionStatus = "Error: \(error.localizedDescription)"
-                    self?.isConnected = false
+    private func receiveLoop() async {
+        guard let socket = webSocket else { return }
+        do {
+            while true {
+                let message = try await socket.receive()
+                switch message {
+                case .string(let json):
+                    handleMessage(json)
+                case .data(let data):
+                    handleMessage(String(data: data, encoding: .utf8) ?? "")
+                @unknown default:
+                    break
                 }
+            }
+        } catch {
+            // Only update status when the error isn't from an intentional disconnect.
+            if connectionStatus != "Disconnected" {
+                connectionStatus = "Error: \(error.localizedDescription)"
+                isConnected = false
             }
         }
     }
