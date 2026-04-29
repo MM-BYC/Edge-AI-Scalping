@@ -142,7 +142,7 @@ def export_onnx(model: object, output_path: str):
     """
     try:
         import onnxmltools
-        from skl2onnx.common.data_types import FloatTensorType
+        from onnxmltools.convert.common.data_types import FloatTensorType
 
         # Convert to ONNX
         initial_type = [('float_input', FloatTensorType([None, 20]))]

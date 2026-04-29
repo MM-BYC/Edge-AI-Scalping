@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Switch to uv for Python package management *)",
+      "Bash(git commit -m 'Add comprehensive documentation with full flow, setup, and troubleshooting *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(brew install *)",
+      "Bash(gh repo *)",
+      "Bash(gh auth *)",
+      "Bash(git pull *)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib uv run -- python engine/models/train.py)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib python -m uv run -- python engine/models/train.py)",
+      "Bash(uv sync *)",
+      "Bash(git commit -m 'Fix dependency versions and configuration parsing *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

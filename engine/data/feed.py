@@ -19,7 +19,7 @@ class DataFeed:
         self.callbacks: List[Callable] = []
         self.is_running = False
 
-        for symbol in settings.symbols:
+        for symbol in settings.symbols_list:
             self.buffers[symbol] = BarBuffer(symbol, max_bars=500)
             self.alpaca.subscribe_bars(symbol, self._on_bar)
 

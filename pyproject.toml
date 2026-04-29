@@ -8,23 +8,23 @@ version = "1.0.0"
 description = "Low-latency edge AI trading bot for scalping on Alpaca"
 authors = [{name = "Michael", email = "marquezmusa@gmail.com"}]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "Proprietary"}
 
 dependencies = [
     "alpaca-py==0.26.0",
-    "numpy==1.26.4",
-    "pandas==2.2.0",
-    "pandas-ta==0.3.14b0",
+    "numpy>=2.0.0",
+    "pandas>=2.3.0",
+    "pandas-ta>=0.3.14",
     "fastapi==0.109.2",
     "uvicorn[standard]==0.27.0",
     "httpx==0.26.0",
     "uvloop==0.19.0",
-    "lightgbm==4.2.0",
-    "onnxruntime==1.17.3",
-    "onnxmltools==1.13.0",
-    "skl2onnx==1.16.0",
-    "vectorbt==0.25.2",
+    "lightgbm>=4.4.0",
+    "onnxruntime>=1.18.0",
+    "onnxmltools>=1.14.0",
+    "skl2onnx>=1.17.0",
+    "onnx>=1.16.0",
     "pydantic==2.6.1",
     "pydantic-settings==2.1.0",
     "pytz==2024.1",
@@ -42,8 +42,8 @@ dev = [
 [project.scripts]
 edge-ai = "engine.main:main"
 
-[tool.uv]
-python-version = "3.11"
+[tool.hatch.build.targets.wheel]
+packages = ["engine"]
 
 [tool.black]
 line-length = 100

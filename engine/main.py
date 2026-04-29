@@ -44,7 +44,7 @@ class TradingBot:
     def __init__(self):
         logger.info(f"Initializing Edge AI Scalping Bot")
         logger.info(f"Mode: {settings.mode.upper()}")
-        logger.info(f"Symbols: {settings.symbols}")
+        logger.info(f"Symbols: {settings.symbols_list}")
 
         # Core components
         self.alpaca = AlpacaClient()

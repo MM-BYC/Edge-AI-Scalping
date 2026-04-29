@@ -1,9 +1,12 @@
+from pydantic import ConfigDict, field_validator
 from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import List
 
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env", case_sensitive=False)
+
     # Alpaca API
     alpaca_api_key: str
     alpaca_secret_key: str
@@ -12,7 +15,7 @@ class Settings(BaseSettings):
 
     # Trading
     mode: str = "paper"  # paper | live
-    symbols: List[str] = ["SPY", "QQQ"]
+    symbols: str = "SPY,QQQ"
 
     # Risk management
     daily_loss_cap: float = -0.02
@@ -39,11 +42,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "logs/engine.log"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-
     def __init__(self, **data):
         super().__init__(**data)
         # Auto-detect live vs paper based on API URL
@@ -61,6 +59,10 @@ class Settings(BaseSettings):
     @property
     def is_live(self) -> bool:
         return self.mode.lower() == "live"
+
+    @property
+    def symbols_list(self) -> List[str]:
+        return [s.strip() for s in self.symbols.split(",")]
 
     @property
     def project_root(self) -> Path:
