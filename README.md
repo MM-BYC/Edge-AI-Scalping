@@ -188,7 +188,7 @@ uv run -- python engine/main.py
 │  │ Dashboard View                                          │ │
 │  │ ┌───────────────────────────────────────────────────┐  │ │
 │  │ │ Status: ● Connected (Green) / Disconnected (Red) │  │ │
-│  │ │ Server: ws://192.168.1.100:8765                 │  │ │
+│  │ │ Server: ws://192.168.1.192:8765/ws/live          │  │ │
 │  │ └───────────────────────────────────────────────────┘  │ │
 │  │                                                         │ │
 │  │ ┌───────────────────────────────────────────────────┐  │ │
@@ -238,7 +238,7 @@ uv run -- python engine/main.py
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │ Control View                                            │ │
 │  │ ┌─────────────────────────────────────────────────┐    │ │
-│  │ │ Server URL: 192.168.1.100:8765      [Edit ✏️]  │    │ │
+│  │ │ ws://192.168.1.192:8765/ws/live  [Edit ✏️]  │    │ │
 │  │ │ [           Connect            ]                 │    │ │
 │  │ └─────────────────────────────────────────────────┘    │ │
 │  │                                                         │ │
@@ -517,11 +517,11 @@ xcodebuild build -scheme EdgeAI
 
 ```
 ┌─────────────────────────────────┐
-│  Edge AI Scalping              │
+│  Edge AI Scalping               │
 ├─────────────────────────────────┤
 │                                 │
-│ ● Connected (green indicator)   │
-│   192.168.1.100:8765           │
+│ ● Connected                     │
+│   ws://192.168.1.192:8765/ws/live│
 │                                 │
 │ ┌───────────────────────────┐  │
 │ │ Equity      $102,500.00   │  │
@@ -537,31 +537,24 @@ xcodebuild build -scheme EdgeAI
 │ │ Trades      5             │  │
 │ └───────────────────────────┘  │
 │                                 │
-│ [Equity Curve Chart]            │
 │ ┌───────────────────────────┐  │
-│ │        /---────┐          │  │
-│ │       /                   │  │
-│ │      /                    │  │
-│ │  ---/                     │  │
-│ │ /___________________      │  │
+│ │ Winning Ticker Traded     │  │
+│ │ SPY                       │  │
 │ └───────────────────────────┘  │
-│        Apr 28    Sep 28         │
 │                                 │
-│ [  Connect  ]                   │
+│ [  Disconnect from Bot  ]       │  ← red when connected
+│ [  Connect to Bot       ]       │  ← blue when disconnected
 │                                 │
 └─────────────────────────────────┘
 ```
 
 **What It Shows:**
-- **Connection Status** (green = connected, red = disconnected)
-- **Server URL** (IP/hostname of Mac mini)
-- **Equity**: Total account value
-- **Daily P&L**: Profit/loss for the day (green if positive)
-- **Cash**: Available to trade
-- **Positions**: Number of open trades
-- **Trades**: Total trades executed today
-- **Equity Curve**: Visual chart of account growth
-- **[Connect]**: Button to establish WebSocket connection
+
+- **Connection Status** (green dot = connected, red = disconnected)
+- **Bot Status Box**: Equity, Daily P&L, Cash, Positions, Trades Today
+- **P&L Stats Box**: Total P&L, Win Rate, Total Trades
+- **Winning Ticker Traded**: Symbol with the highest unrealized P&L among open positions (green), or `--` when no winning trade is active
+- **Connect / Disconnect**: Toggles based on connection state — blue "Connect to Bot" when disconnected, red "Disconnect from Bot" when connected
 
 **Real-Time Updates:** All values update every 500ms from Mac mini.
 
@@ -619,10 +612,11 @@ xcodebuild build -scheme EdgeAI
 │                                 │
 │ Server Connection               │
 │ ┌──────────────────────────┐   │
-│ │ 192.168.1.100:8765   ✎  │   │
+│ │ ws://192.168.1.192:8765  │   │
+│ │ /ws/live             ✎  │   │
 │ └──────────────────────────┘   │
 │                                 │
-│ [    Connect    ]               │
+│ [ Connect ] [ Disconnect ]      │
 │                                 │
 │ Bot Control                     │
 │ ┌──────────────────────────┐   │
@@ -646,14 +640,14 @@ xcodebuild build -scheme EdgeAI
 **Controls:**
 
 1. **Server URL**
-   - Enter: `ws://192.168.1.100:8765` (replace IP)
-   - Tap ✎ to edit
-   - Tap ✓ to save
+   - Default: `ws://192.168.1.192:8765/ws/live`
+   - Tap ✎ to edit, ✓ to save
+   - Must include `/ws/live` path suffix
 
-2. **[Connect]**
-   - Establishes WebSocket to Mac mini
-   - Status changes to green when successful
-   - Dashboard starts updating in real-time
+2. **[Connect] / [Disconnect]**
+   - Connect (blue): Establishes WebSocket to Mac mini — grayed out when already connected
+   - Disconnect (red): Closes the connection — grayed out when disconnected
+   - Dashboard updates in real-time once connected
 
 3. **[Start]**
    - Resume trading (if paused)
