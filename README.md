@@ -68,7 +68,9 @@ uv run -- python engine/main.py
 
 # Terminal 2: Build & run iOS app
 cd ios/EdgeAI
-xcode-build-and-run
+xcodebuild -scheme EdgeAI -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16' build
+# Or open in Xcode:
+open EdgeAI.xcodeproj
 ```
 
 Bot API listens on `http://localhost:8765` (WebSocket for iOS).
