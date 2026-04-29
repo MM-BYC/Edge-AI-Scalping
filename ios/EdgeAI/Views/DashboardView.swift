@@ -82,6 +82,32 @@ struct DashboardView: View {
                     .cornerRadius(8)
                 }
 
+                // Winning Ticker
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Winning Ticker")
+                            .font(.headline)
+                        Spacer()
+                    }
+                    HStack {
+                        if let ticker = botService.winningTicker {
+                            Text(ticker)
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                                .foregroundColor(.green)
+                        } else {
+                            Text("--")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+
                 Spacer()
 
                 if botService.isConnected {

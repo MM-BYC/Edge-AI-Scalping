@@ -150,6 +150,12 @@ def create_app() -> FastAPI:
         try:
             while True:
                 if risk_manager and pnl_tracker:
+                    open_trades = pnl_tracker.get_open_trades()
+                    winning_ticker = None
+                    if open_trades:
+                        best = max(open_trades, key=lambda t: t["unrealized_pnl"])
+                        if best["unrealized_pnl"] > 0:
+                            winning_ticker = best["symbol"]
                     update = {
                         "timestamp": datetime.now().isoformat(),
                         "bot_status": {
@@ -161,8 +167,9 @@ def create_app() -> FastAPI:
                             "positions": risk_manager.metrics.position_count,
                             "trades_today": risk_manager.daily_trades
                         },
-                        "positions": pnl_tracker.get_open_trades(),
-                        "pnl": pnl_tracker.get_stats()
+                        "positions": open_trades,
+                        "pnl": pnl_tracker.get_stats(),
+                        "winning_ticker": winning_ticker
                     }
                     await websocket.send_json(update)
                 await asyncio.sleep(0.5)

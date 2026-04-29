@@ -6,9 +6,10 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     @Published var positions: [Position] = []
     @Published var pnlStats: PnLStats?
     @Published var connectionStatus = "Disconnected"
+    @Published var winningTicker: String? = nil
 
     private var webSocket: URLSessionWebSocketTask?
-    private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.100:8765/ws/live"
+    private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.192:8765/ws/live"
     private var receiveTask: URLSessionWebSocketTask?
 
     override init() {
@@ -74,6 +75,7 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
                 self.botStatus = update.botStatus
                 self.positions = update.positions
                 self.pnlStats = update.pnl
+                self.winningTicker = update.winningTicker
                 self.connectionStatus = "Connected"
                 self.isConnected = true
             }
@@ -161,10 +163,12 @@ struct LiveUpdate: Codable {
     var botStatus: BotStatus
     var positions: [Position]
     var pnl: PnLStats
+    var winningTicker: String?
 
     enum CodingKeys: String, CodingKey {
         case timestamp
         case botStatus = "bot_status"
         case positions, pnl
+        case winningTicker = "winning_ticker"
     }
 }
