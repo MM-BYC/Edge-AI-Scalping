@@ -21,9 +21,25 @@ struct TickersView: View {
     @State private var sellPutTickers:      [String] = stored("sellPutTickers",       default: ["TSLY","NVDY","AMZY"])
     @State private var creditSpreadTickers: [String] = stored("creditSpreadTickers",  default: ["SPY","QQQ"])
 
+    @State private var selectedCategory: TickerTarget = .equity
     @State private var newTicker     = ""
-    @State private var addTarget:    TickerTarget = .equity
     @State private var appliedBanner = false
+
+    private var activeTickers: Binding<[String]> {
+        switch selectedCategory {
+        case .equity:       return $equityTickers
+        case .sellPut:      return $sellPutTickers
+        case .creditSpread: return $creditSpreadTickers
+        }
+    }
+
+    private var activeKey: String {
+        switch selectedCategory {
+        case .equity:       return "equityTickers"
+        case .sellPut:      return "sellPutTickers"
+        case .creditSpread: return "creditSpreadTickers"
+        }
+    }
 
     var body: some View {
         NavigationView {
@@ -32,30 +48,96 @@ struct TickersView: View {
 
                 VStack(spacing: 0) {
 
-                    // ── Ticker lists ──────────────────────────────────────
+                    // ── Category filter buttons ────────────────────────────
+                    HStack(spacing: 8) {
+                        ForEach(TickerTarget.allCases) { target in
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedCategory = target
+                                }
+                            }) {
+                                Text(target.rawValue)
+                                    .font(.caption).fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        selectedCategory == target
+                                            ? target.accentColor.opacity(0.25)
+                                            : Theme.surface.opacity(0.7)
+                                    )
+                                    .foregroundColor(
+                                        selectedCategory == target
+                                            ? target.accentColor
+                                            : Theme.textMuted
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(
+                                                selectedCategory == target
+                                                    ? target.accentColor.opacity(0.6)
+                                                    : Color.clear,
+                                                lineWidth: 1
+                                            )
+                                    )
+                                    .cornerRadius(8)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
+
+                    // ── Ticker list for selected category ─────────────────
                     List {
-                        tickerSection(title: "EQUITY",        color: TickerTarget.equity.accentColor,
-                                      tickers: $equityTickers,       key: "equityTickers")
-                        tickerSection(title: "SELL PUT",      color: TickerTarget.sellPut.accentColor,
-                                      tickers: $sellPutTickers,      key: "sellPutTickers")
-                        tickerSection(title: "CREDIT SPREAD", color: TickerTarget.creditSpread.accentColor,
-                                      tickers: $creditSpreadTickers, key: "creditSpreadTickers")
+                        Section {
+                            if activeTickers.wrappedValue.isEmpty {
+                                Text("No tickers — add one below")
+                                    .font(.caption).foregroundColor(Theme.textMuted)
+                                    .listRowBackground(Color.clear)
+                            } else {
+                                ForEach(activeTickers.wrappedValue, id: \.self) { ticker in
+                                    HStack {
+                                        Text(ticker)
+                                            .font(.system(.body, design: .monospaced))
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(Theme.textPrimary)
+                                        Spacer()
+                                        Text(selectedCategory.rawValue.uppercased())
+                                            .font(.caption2)
+                                            .foregroundColor(selectedCategory.accentColor)
+                                            .padding(.horizontal, 5).padding(.vertical, 2)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .stroke(selectedCategory.accentColor, lineWidth: 1)
+                                            )
+                                    }
+                                    .listRowBackground(Theme.surface.opacity(0.7))
+                                }
+                                .onDelete { offsets in
+                                    activeTickers.wrappedValue.remove(atOffsets: offsets)
+                                    UserDefaults.standard.set(activeTickers.wrappedValue, forKey: activeKey)
+                                }
+                            }
+                        } header: {
+                            HStack {
+                                Text(selectedCategory.rawValue.uppercased())
+                                    .font(.caption).fontWeight(.bold)
+                                    .foregroundColor(selectedCategory.accentColor)
+                                Spacer()
+                                Text("\(activeTickers.wrappedValue.count) ticker\(activeTickers.wrappedValue.count == 1 ? "" : "s")")
+                                    .font(.caption2).foregroundColor(Theme.textMuted)
+                            }
+                        }
                     }
                     .listStyle(.insetGrouped)
                     .scrollContentBackground(.hidden)
                     .refreshable { await botService.refresh() }
+                    .animation(.easeInOut(duration: 0.2), value: selectedCategory)
 
                     // ── Add row ───────────────────────────────────────────
                     VStack(spacing: 8) {
-                        Picker("Add to", selection: $addTarget) {
-                            ForEach(TickerTarget.allCases) { t in
-                                Text(t.rawValue).tag(t)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
                         HStack(spacing: 10) {
-                            TextField("Symbol (e.g. MSFT)", text: $newTicker)
+                            TextField("Add symbol (e.g. MSFT)", text: $newTicker)
                                 .textFieldStyle(.roundedBorder)
                                 .textInputAutocapitalization(.characters)
                                 .autocorrectionDisabled()
@@ -67,7 +149,7 @@ struct TickersView: View {
                                     .font(.title2)
                                     .foregroundColor(
                                         newTicker.trimmingCharacters(in: .whitespaces).isEmpty
-                                            ? Theme.textMuted : addTarget.accentColor
+                                            ? Theme.textMuted : selectedCategory.accentColor
                                     )
                             }
                             .disabled(newTicker.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -108,53 +190,14 @@ struct TickersView: View {
         }
     }
 
-    // MARK: - Section builder
-
-    @ViewBuilder
-    private func tickerSection(
-        title: String, color: Color,
-        tickers: Binding<[String]>, key: String
-    ) -> some View {
-        Section {
-            ForEach(tickers.wrappedValue, id: \.self) { ticker in
-                HStack {
-                    Text(ticker)
-                        .font(.system(.body, design: .monospaced)).fontWeight(.semibold)
-                    Spacer()
-                    Text(title)
-                        .font(.caption2).foregroundColor(color)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(color, lineWidth: 1))
-                }
-            }
-            .onDelete { offsets in
-                tickers.wrappedValue.remove(atOffsets: offsets)
-                UserDefaults.standard.set(tickers.wrappedValue, forKey: key)
-            }
-        } header: {
-            Text(title).font(.caption).foregroundColor(color).fontWeight(.bold)
-        }
-    }
-
     // MARK: - Actions
 
     private func addTicker() {
         let sym = newTicker.trimmingCharacters(in: .whitespaces).uppercased()
         guard !sym.isEmpty else { return }
-        switch addTarget {
-        case .equity:
-            guard !equityTickers.contains(sym) else { newTicker = ""; return }
-            equityTickers.append(sym)
-            UserDefaults.standard.set(equityTickers, forKey: "equityTickers")
-        case .sellPut:
-            guard !sellPutTickers.contains(sym) else { newTicker = ""; return }
-            sellPutTickers.append(sym)
-            UserDefaults.standard.set(sellPutTickers, forKey: "sellPutTickers")
-        case .creditSpread:
-            guard !creditSpreadTickers.contains(sym) else { newTicker = ""; return }
-            creditSpreadTickers.append(sym)
-            UserDefaults.standard.set(creditSpreadTickers, forKey: "creditSpreadTickers")
-        }
+        guard !activeTickers.wrappedValue.contains(sym) else { newTicker = ""; return }
+        activeTickers.wrappedValue.append(sym)
+        UserDefaults.standard.set(activeTickers.wrappedValue, forKey: activeKey)
         newTicker = ""
     }
 
@@ -180,6 +223,5 @@ private func stored(_ key: String, default def: [String]) -> [String] {
 struct TickersView_Previews: PreviewProvider {
     static var previews: some View {
         TickersView().environmentObject(BotService())
-            .preferredColorScheme(.dark)
     }
 }

@@ -10,11 +10,11 @@
 		007E76EBC6E5C7D53850E6D6 /* BotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402AF134794B53476105E48F /* BotService.swift */; };
 		9F6A1F92EBD7F389911DBC1A /* ControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177DF06B909DDB76904FF4B0 /* ControlView.swift */; };
 		A0A16A1F0BE4F9A52C2A3C80 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BD60B13F417C04B059B98D /* DashboardView.swift */; };
-		E71D8FDA8CB735D929841B27 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B5BB4B899832E4D1CF14BC /* App.swift */; };
-		F6B640A5A6764E62E0DAD1FC /* PositionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A8E194EEC29314163AC91B /* PositionsView.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* TickersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */; };
 		C1D2E3F4A5B6C7D8E9F0A1B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E3F4A5B6C7D8E9F0A1B2C3 /* Theme.swift */; };
 		E3F4A5B6C7D8E9F0A1B2C3D4 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C7D8E9F0A1B2C3D4E5 /* SplashView.swift */; };
+		E71D8FDA8CB735D929841B27 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B5BB4B899832E4D1CF14BC /* App.swift */; };
+		F6B640A5A6764E62E0DAD1FC /* PositionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A8E194EEC29314163AC91B /* PositionsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,8 +26,8 @@
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TickersView.swift; sourceTree = "<group>"; };
 		D2E3F4A5B6C7D8E9F0A1B2C3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D4BD60B13F417C04B059B98D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
-		F4A5B6C7D8E9F0A1B2C3D4E5 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		F4838BC656B6F0E6FE9C751B /* EdgeAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EdgeAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4A5B6C7D8E9F0A1B2C3D4E5 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -165,8 +165,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = 080C18;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = "080C18";
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17;
@@ -196,8 +196,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = 080C18;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = "080C18";
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17;
@@ -261,7 +261,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -327,7 +327,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
