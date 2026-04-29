@@ -15,10 +15,30 @@
       "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib uv run -- python engine/models/train.py)",
       "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib python -m uv run -- python engine/models/train.py)",
       "Bash(uv sync *)",
-      "Bash(git commit -m 'Fix dependency versions and configuration parsing *)"
+      "Bash(git commit -m 'Fix dependency versions and configuration parsing *)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib timeout 30 uv run -- python engine/main.py)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib uv run -- python engine/main.py)",
+      "Bash(pkill -f \"engine/main.py\")",
+      "Bash(git commit -m 'Fix Alpaca TradingClient API compatibility *)",
+      "Bash(git commit -m 'Fix README: replace xcode-build-and-run placeholder with actual commands *)"
     ],
     "additionalDirectories": [
       "/tmp"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -q 'git commit' && git push origin main 2>/dev/null || true",
+            "statusMessage": "Pushing commit to GitHub...",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
