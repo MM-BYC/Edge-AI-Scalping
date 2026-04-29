@@ -106,6 +106,21 @@ class SignalEnsemble:
 
         return ensemble_signal, analysis
 
+    def update_weights(self, rule_weight: float, ml_weight: float):
+        """
+        Adjust ensemble weights at runtime (called by DeployAgent after each
+        training cycle — either to reward a successful deploy or penalise a
+        string of failures).
+        """
+        total = rule_weight + ml_weight
+        self.rule_weight = rule_weight / total
+        self.ml_weight   = ml_weight   / total
+        logger.info(f"Ensemble weights updated: rules={self.rule_weight:.1%} ml={self.ml_weight:.1%}")
+
+    def reload_model(self, new_model_path: str):
+        """Hot-swap the underlying ONNX model without restarting the bot."""
+        self.ml_model.reload_model(new_model_path)
+
     def get_model_status(self) -> Dict:
         """Get status of the ensemble and models"""
         return {

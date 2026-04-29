@@ -85,7 +85,7 @@ struct DashboardView: View {
                 // Winning Ticker
                 VStack(spacing: 8) {
                     HStack {
-                        Text("Winning Ticker")
+                        Text("Winning Ticker Traded")
                             .font(.headline)
                         Spacer()
                     }

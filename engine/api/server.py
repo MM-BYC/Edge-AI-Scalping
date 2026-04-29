@@ -52,6 +52,7 @@ manager = ConnectionManager()
 pnl_tracker: Optional[PnLTracker] = None
 risk_manager: Optional[RiskManager] = None
 bot_is_running = False
+active_symbols: Optional[List[str]] = None   # overrides settings.symbols_list when set
 
 
 def create_app() -> FastAPI:
@@ -119,24 +120,37 @@ def create_app() -> FastAPI:
 
         return risk_manager.get_status()
 
+    @app.get("/symbols")
+    async def get_symbols() -> Dict:
+        """Return the currently active ticker list."""
+        syms = active_symbols if active_symbols is not None else settings.symbols_list
+        return {"symbols": syms}
+
     @app.post("/control")
     async def control(command: ControlCommand) -> Dict:
         """Execute control command from iOS"""
-        global bot_is_running
+        global bot_is_running, active_symbols
 
         if command.action == "start":
             bot_is_running = True
-            logger.info(f"Bot started by iOS")
+            logger.info("Bot started by iOS")
             return {"status": "started"}
 
         elif command.action == "stop":
             bot_is_running = False
-            logger.info(f"Bot stopped by iOS")
+            logger.info("Bot stopped by iOS")
             return {"status": "stopped"}
 
         elif command.action == "pause":
-            logger.info(f"Bot paused by iOS")
+            logger.info("Bot paused by iOS")
             return {"status": "paused"}
+
+        elif command.action == "set_symbols":
+            if not command.symbols:
+                raise HTTPException(status_code=400, detail="symbols list is empty")
+            active_symbols = [s.strip().upper() for s in command.symbols]
+            logger.info(f"Active symbols updated by iOS: {active_symbols}")
+            return {"status": "symbols_updated", "symbols": active_symbols, "note": "restart bot to subscribe new symbols"}
 
         else:
             raise HTTPException(status_code=400, detail=f"Unknown action: {command.action}")

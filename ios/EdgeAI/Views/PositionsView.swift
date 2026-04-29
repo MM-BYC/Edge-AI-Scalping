@@ -18,14 +18,17 @@ struct PositionsView: View {
                 } else {
                     List(botService.positions) { position in
                         VStack(alignment: .leading, spacing: 8) {
+
+                            // Symbol + quantity
                             HStack {
                                 Text(position.symbol)
                                     .font(.headline)
                                 Spacer()
-                                Text("\(position.qty, specifier: "%.0f")")
+                                Text("\(position.qty, specifier: "%.0f")sh")
                                     .fontWeight(.semibold)
                             }
 
+                            // Entry / current prices
                             HStack {
                                 Text("Entry: $\(String(format: "%.2f", position.entryPrice))")
                                     .font(.caption)
@@ -35,15 +38,29 @@ struct PositionsView: View {
                             }
                             .foregroundColor(.gray)
 
-                            HStack {
+                            // P&L row with W / L badge
+                            HStack(spacing: 6) {
                                 Text("P&L")
                                     .font(.caption)
                                 Spacer()
+
+                                // W or L badge
+                                let winning = position.unrealizedPnl >= 0
+                                Text(winning ? "W" : "L")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(winning ? Color.green : Color.red)
+                                    .cornerRadius(4)
+
                                 Text("$\(String(format: "%.2f", position.unrealizedPnl))")
-                                    .foregroundColor(position.unrealizedPnl >= 0 ? .green : .red)
+                                    .foregroundColor(winning ? .green : .red)
                                     .fontWeight(.semibold)
+
                                 Text("(\(String(format: "%.2f", position.unrealizedPnlPct * 100))%)")
-                                    .foregroundColor(position.unrealizedPnlPct >= 0 ? .green : .red)
+                                    .foregroundColor(winning ? .green : .red)
                                     .font(.caption)
                             }
                         }

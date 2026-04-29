@@ -4,6 +4,8 @@ from typing import Optional, Tuple, List
 import logging
 import time
 
+from engine.models.features import build_features, FEATURE_DIM  # shared feature pipeline
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -60,51 +62,9 @@ class MLModelInference:
 
     def preprocess_features(self, closes: np.ndarray, opens: np.ndarray, highs: np.ndarray,
                            lows: np.ndarray, volumes: np.ndarray, lookback: int = 20) -> Optional[np.ndarray]:
-        """
-        Preprocess raw OHLCV data into model features
-        Features: normalized OHLCV, returns, volatility, volume ratio
-        """
-        if len(closes) < lookback:
-            return None
-
+        """Delegate to the shared feature pipeline (same logic used at training time)."""
         try:
-            # Get last lookback bars
-            closes_slice = closes[-lookback:].astype(np.float64)
-            opens_slice = opens[-lookback:].astype(np.float64)
-            highs_slice = highs[-lookback:].astype(np.float64)
-            lows_slice = lows[-lookback:].astype(np.float64)
-            volumes_slice = volumes[-lookback:].astype(np.float64)
-
-            features = []
-
-            # Normalized OHLCV (0-1 scale per bar)
-            for i in range(lookback):
-                close_normalized = closes_slice[i] / (closes_slice[i] + 1e-8)
-                features.append(close_normalized)
-
-            # Price returns (log returns)
-            returns = np.diff(np.log(closes_slice + 1e-8))
-            features.extend(returns.tolist())
-
-            # High-Low ratio (volatility proxy)
-            hl_ratio = (highs_slice - lows_slice) / (closes_slice + 1e-8)
-            features.extend(hl_ratio.tolist())
-
-            # Volume ratio (normalized)
-            mean_vol = np.mean(volumes_slice) + 1e-8
-            vol_ratio = volumes_slice / mean_vol
-            features.extend(vol_ratio.tolist())
-
-            # Pad or truncate to exactly 20 features
-            features = features[:20]
-            while len(features) < 20:
-                features.append(0.0)
-
-            # Reshape for model input [1, 20]
-            features_array = np.array(features, dtype=np.float32).reshape(1, 20)
-
-            return features_array
-
+            return build_features(opens, highs, lows, closes, volumes, lookback=lookback)
         except Exception as e:
             logger.error(f"Feature preprocessing error: {e}")
             return None
@@ -150,6 +110,18 @@ class MLModelInference:
             signal, confidence, _ = self.predict(features)
             results.append((signal, confidence))
         return results
+
+    def reload_model(self, new_path: str):
+        """Hot-swap the ONNX session with a freshly deployed model."""
+        self.model_path = Path(new_path)
+        self.session = None
+        self.model_loaded = False
+        if ONNX_AVAILABLE:
+            self._load_model()
+        if self.model_loaded:
+            logger.info(f"Model hot-reloaded: {new_path}")
+        else:
+            logger.error(f"Hot-reload failed for: {new_path}")
 
     def is_available(self) -> bool:
         """Check if model is ready for inference"""

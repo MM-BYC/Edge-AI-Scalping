@@ -89,15 +89,25 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     }
 
     func sendCommand(_ action: String) {
-        let command = ["action": action]
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: command) else { return }
+        let command: [String: Any] = ["action": action]
+        postControl(command)
+    }
 
-        let urlRequest = URLRequest(url: URL(string: serverURL.replacingOccurrences(of: "ws://", with: "http://") + "/control")!)
-        var request = urlRequest
+    func sendTickers(_ symbols: [String]) {
+        let command: [String: Any] = ["action": "set_symbols", "symbols": symbols]
+        postControl(command)
+    }
+
+    private func postControl(_ body: [String: Any]) {
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else { return }
+        let base = serverURL
+            .replacingOccurrences(of: "ws://", with: "http://")
+            .replacingOccurrences(of: "/ws/live", with: "")
+        guard let url = URL(string: base + "/control") else { return }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = jsonData
-
         URLSession.shared.dataTask(with: request).resume()
     }
 }

@@ -24,6 +24,9 @@ from engine.execution.risk import RiskManager
 from engine.execution.router import OrderRouter
 from engine.execution.pnl_tracker import PnLTracker
 from engine.api.server import create_app, set_dependencies
+from engine.agents.orchestrator import RetrainingOrchestrator
+from engine.agents.live_feedback_agent import LiveFeedbackAgent
+from engine.scheduler import NightlyScheduler
 import uvicorn
 
 # Setup logging
@@ -58,6 +61,18 @@ class TradingBot:
         self.is_running = False
         self.last_bar_time = {}
 
+        # Nightly retraining pipeline
+        self._orchestrator   = RetrainingOrchestrator(ensemble=self.ensemble)
+        self._scheduler      = NightlyScheduler(self._orchestrator)
+
+        # Intraday live feedback (adjusts ensemble weights from live trade outcomes)
+        self._live_feedback  = LiveFeedbackAgent(
+            bus=self._orchestrator.bus,
+            registry=self._orchestrator.registry,
+            pnl_tracker=self.pnl,
+            ensemble=self.ensemble,
+        )
+
         # Register callbacks
         self.feed.add_callback(self._on_new_bar)
 
@@ -79,6 +94,14 @@ class TradingBot:
             self.is_running = True
             logger.info("Bot ready, waiting for market data...")
 
+            # Start nightly retraining scheduler in background
+            asyncio.create_task(self._scheduler.start())
+            logger.info("Nightly retraining scheduler started")
+
+            # Start intraday feedback agent in background
+            asyncio.create_task(self._live_feedback.start())
+            logger.info("LiveFeedbackAgent started")
+
         except Exception as e:
             logger.error(f"Failed to start bot: {e}")
             raise
@@ -90,6 +113,10 @@ class TradingBot:
         try:
             # Close all positions
             await self.router.close_all_positions("shutdown")
+
+            # Stop background agents
+            self._scheduler.stop()
+            self._live_feedback.stop()
 
             # Disconnect
             await self.feed.stop()

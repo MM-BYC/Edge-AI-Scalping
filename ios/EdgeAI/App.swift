@@ -35,6 +35,12 @@ struct ContentView: View {
                     Label("Control", systemImage: "slider.horizontal.3")
                 }
                 .tag(2)
+
+            TickersView()
+                .tabItem {
+                    Label("Tickers", systemImage: "list.bullet.rectangle")
+                }
+                .tag(3)
         }
         .environmentObject(botService)
     }

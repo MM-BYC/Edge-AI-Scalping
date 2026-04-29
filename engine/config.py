@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     backtest_train_days: int = 60
     backtest_test_days: int = 10
 
+    # Nightly retraining
+    retrain_lookback_days: int = 90       # days of history to fetch per run
+    retrain_min_improvement: float = 0.01 # min win-rate delta to deploy a new model
+
     # Logging
     log_level: str = "INFO"
     log_file: str = "logs/engine.log"
