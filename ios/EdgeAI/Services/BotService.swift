@@ -7,8 +7,8 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     @Published var pnlStats: PnLStats?
     @Published var connectionStatus = "Disconnected"
 
-    private var webSocket: URLSessionWebSocket?
-    private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.192:8765"
+    private var webSocket: URLSessionWebSocketTask?
+    private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.100:8765"
     private var receiveTask: URLSessionWebSocketTask?
 
     override init() {

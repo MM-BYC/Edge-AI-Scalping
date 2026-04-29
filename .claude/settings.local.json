@@ -20,7 +20,15 @@
       "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib uv run -- python engine/main.py)",
       "Bash(pkill -f \"engine/main.py\")",
       "Bash(git commit -m 'Fix Alpaca TradingClient API compatibility *)",
-      "Bash(git commit -m 'Fix README: replace xcode-build-and-run placeholder with actual commands *)"
+      "Bash(git commit -m 'Fix README: replace xcode-build-and-run placeholder with actual commands *)",
+      "Bash(xcodebuild -runFirstLaunch)",
+      "Bash(git commit -m 'Update README: clarify iOS app is optional reference implementation *)",
+      "Bash(chmod +x /Users/michaelm/Sandbox/Project/Edge_AI_scalping/scripts/setup-ios-project.sh)",
+      "Bash(/Users/michaelm/Sandbox/Project/Edge_AI_scalping/scripts/setup-ios-project.sh)",
+      "Bash(git commit -m 'Automate iOS Xcode project setup and create project structure *)",
+      "Bash(ipconfig getifaddr *)",
+      "Bash(awk '{print $2}')",
+      "Bash(git commit -m 'Clean up duplicate iOS project directories *)"
     ],
     "additionalDirectories": [
       "/tmp"
