@@ -11,6 +11,8 @@ from engine.api.schemas import BotStatus, PositionSnapshot, LiveUpdate, ControlC
 from engine.execution.pnl_tracker import PnLTracker
 from engine.execution.risk import RiskManager
 from engine.execution.options_tracker import OptionsTracker
+from engine.execution.sell_put_router import SellPutRouter
+from engine.execution.credit_spread_router import CreditSpreadRouter
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +47,15 @@ class ConnectionManager:
 
 # ── Global state ──────────────────────────────────────────────────────
 manager          = ConnectionManager()
-pnl_tracker:     Optional[PnLTracker]     = None
-risk_manager:    Optional[RiskManager]    = None
-options_tracker: Optional[OptionsTracker] = None
+pnl_tracker:     Optional[PnLTracker]       = None
+risk_manager:    Optional[RiskManager]      = None
+options_tracker: Optional[OptionsTracker]   = None
+sell_put_router: Optional[SellPutRouter]    = None
+credit_spread_router: Optional[CreditSpreadRouter] = None
 data_feed: Optional[Any] = None
 bot_is_running   = False
-active_symbols:           Optional[List[str]] = None
-active_sell_put_symbols:  Optional[List[str]] = None
+active_symbols:               Optional[List[str]] = None
+active_sell_put_symbols:      Optional[List[str]] = None
 active_credit_spread_symbols: Optional[List[str]] = None
 
 
@@ -142,6 +146,10 @@ def create_app() -> FastAPI:
             cs = params.get("credit_spread", [])
             active_sell_put_symbols      = [s.strip().upper() for s in sp]
             active_credit_spread_symbols = [s.strip().upper() for s in cs]
+            if sell_put_router:
+                sell_put_router.set_symbols(active_sell_put_symbols)
+            if credit_spread_router:
+                credit_spread_router.set_symbols(active_credit_spread_symbols)
             logger.info(f"Sell-put symbols: {active_sell_put_symbols}")
             logger.info(f"Credit-spread symbols: {active_credit_spread_symbols}")
             return {
@@ -263,12 +271,17 @@ def set_dependencies(
     risk: RiskManager,
     opts: Optional[OptionsTracker] = None,
     feed: Optional[Any] = None,
+    sp_router: Optional[SellPutRouter] = None,
+    cs_router: Optional[CreditSpreadRouter] = None,
 ):
     global pnl_tracker, risk_manager, options_tracker, data_feed
-    pnl_tracker     = pnl
-    risk_manager    = risk
-    options_tracker = opts
-    data_feed       = feed
+    global sell_put_router, credit_spread_router
+    pnl_tracker          = pnl
+    risk_manager         = risk
+    options_tracker      = opts
+    data_feed            = feed
+    sell_put_router      = sp_router
+    credit_spread_router = cs_router
 
 
 def set_bot_running(is_running: bool):

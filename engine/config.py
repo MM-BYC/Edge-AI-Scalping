@@ -45,8 +45,9 @@ class Settings(BaseSettings):
     retrain_lookback_days: int = 90       # days of history to fetch per run
     retrain_min_improvement: float = 0.01 # min win-rate delta to deploy a new model
 
-    # 0DTE SPY credit spread mode (opt-in)
-    zero_dte_enabled: bool = False
+    # Options trading modes
+    zero_dte_enabled: bool = False      # enable 0DTE SPY credit spreads
+    paper_options_sim: bool = True      # simulate option fills in paper mode (no real orders)
 
     # Logging
     log_level: str = "INFO"

@@ -23,11 +23,13 @@ from engine.api.server import create_app, set_bot_running, set_dependencies
 from engine.broker.alpaca_client import AlpacaClient
 from engine.config import settings
 from engine.data.feed import DataFeed
+from engine.execution.credit_spread_router import CreditSpreadRouter
 from engine.execution.options_router import ZeroDTERouter
 from engine.execution.options_tracker import OptionsTracker
 from engine.execution.pnl_tracker import PnLTracker
 from engine.execution.risk import RiskManager
 from engine.execution.router import OrderRouter
+from engine.execution.sell_put_router import SellPutRouter
 from engine.scheduler import NightlyScheduler
 from engine.signals.ensemble import SignalEnsemble
 
@@ -69,6 +71,12 @@ class TradingBot:
         if self._zero_dte:
             logger.info("0DTE SPY credit spread mode enabled")
 
+        # Sell Put and Credit Spread routers (always on; symbols configured via iOS)
+        self._sell_put = SellPutRouter(self.alpaca, self.options, self.risk)
+        self._credit_spread = CreditSpreadRouter(self.alpaca, self.options, self.risk)
+        if settings.is_paper and settings.paper_options_sim:
+            logger.info("Options paper simulation mode enabled (sell-put, credit-spread, 0DTE)")
+
         # State
         self.is_running = False
         self.last_bar_time = {}
@@ -101,7 +109,11 @@ class TradingBot:
             self._start_api_server()
 
             # Set dependencies for API
-            set_dependencies(self.pnl, self.risk, self.options, self.feed)
+            set_dependencies(
+                self.pnl, self.risk, self.options, self.feed,
+                sp_router=self._sell_put,
+                cs_router=self._credit_spread,
+            )
 
             self.is_running = True
             set_bot_running(True)
@@ -137,10 +149,14 @@ class TradingBot:
             self._scheduler.stop()
             self._live_feedback.stop()
 
-            # Close 0DTE positions and clean up
+            # Close options positions and clean up
             if self._zero_dte:
                 await self._zero_dte.close_all()
                 await self._zero_dte.aclose()
+            await self._sell_put.close_all()
+            await self._sell_put.aclose()
+            await self._credit_spread.close_all()
+            await self._credit_spread.aclose()
 
             # Disconnect
             await self.feed.stop()
@@ -217,6 +233,10 @@ class TradingBot:
 
         # Route equity signal
         asyncio.create_task(self.router.route_signal(symbol, signal, bar.close, confidence))
+
+        # Route options signals (each router filters by its own symbol list)
+        asyncio.create_task(self._sell_put.route_signal(symbol, signal, bar.close, confidence))
+        asyncio.create_task(self._credit_spread.route_signal(symbol, signal, bar.close, confidence))
 
         # Route 0DTE signal for SPY when enabled
         if self._zero_dte and symbol == "SPY":

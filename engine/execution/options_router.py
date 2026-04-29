@@ -20,6 +20,8 @@ from engine.config import settings
 from engine.execution.options_tracker import OptionsTracker
 from engine.execution.risk import RiskManager
 
+_SIM_DECAY_MINS = 30.0  # paper sim: 0DTE spread cost decays to ~5% over this many minutes
+
 logger = logging.getLogger(__name__)
 
 _MIN_CONFIDENCE   = 0.60   # minimum signal confidence to trade
@@ -56,6 +58,7 @@ class ZeroDTERouter:
 
         self._last_entry: Optional[datetime] = None
         self._active: Dict[str, asyncio.Task] = {}
+        self._entry_times: Dict[str, datetime] = {}
 
         self._data_client = httpx.AsyncClient(
             base_url=settings.alpaca_data_url,
@@ -128,6 +131,7 @@ class ZeroDTERouter:
         )
 
         key  = f"SPY_{short_strike}_{today.isoformat()}"
+        self._entry_times[key] = now
         task = asyncio.create_task(
             self._monitor(key, short_strike, long_strike, today, option_type, credit, qty)
         )
@@ -260,6 +264,12 @@ class ZeroDTERouter:
         short_sym = _occ_symbol("SPY", expiry, option_type, short_strike)
         long_sym  = _occ_symbol("SPY", expiry, option_type, long_strike)
 
+        if settings.is_paper and settings.paper_options_sim:
+            logger.info(
+                f"0DTE [PAPER SIM]: {short_sym}/{long_sym} credit=${credit:.2f} — simulated fill"
+            )
+            return {"id": "paper_sim"}
+
         body = {
             "type":          "limit",
             "time_in_force": "day",
@@ -301,13 +311,21 @@ class ZeroDTERouter:
         long_sym  = _occ_symbol("SPY", expiry, option_type, long_strike)
         deadline  = asyncio.get_event_loop().time() + _MAX_HOLD_SECS
 
+        entry_dt = self._entry_times.get(key, datetime.now())
+
         try:
             while asyncio.get_event_loop().time() < deadline:
                 await asyncio.sleep(_POLL_INTERVAL)
 
-                cost = await self._spread_cost(short_sym, long_sym)
-                if cost is None:
-                    continue
+                if settings.is_paper and settings.paper_options_sim:
+                    elapsed_min = (datetime.now() - entry_dt).total_seconds() / 60
+                    cost = entry_credit * max(0.05, 1.0 - elapsed_min / _SIM_DECAY_MINS)
+                else:
+                    cost = await self._spread_cost(short_sym, long_sym)
+                    if cost is None:
+                        continue
+
+                self.tracker.update_mark("0dte", "SPY", short_strike, expiry.isoformat(), cost)
 
                 profit_pct = 1.0 - (cost / entry_credit) if entry_credit > 0 else 0.0
 
@@ -322,7 +340,8 @@ class ZeroDTERouter:
                     return
 
             # Max hold time reached
-            cost = await self._spread_cost(short_sym, long_sym) or entry_credit
+            cost = entry_credit * 0.05 if (settings.is_paper and settings.paper_options_sim) \
+                else (await self._spread_cost(short_sym, long_sym) or entry_credit)
             logger.info(f"0DTE max hold time reached, closing {key}")
             await self._close_spread(key, short_sym, long_sym, qty, cost, short_strike, expiry, entry_credit)
 
@@ -369,25 +388,26 @@ class ZeroDTERouter:
         expiry:       date,
         entry_credit: float,
     ):
-        body = {
-            "type":          "limit",
-            "time_in_force": "day",
-            "order_class":   "multileg",
-            "limit_price":   str(round(close_cost, 2)),
-            "legs": [
-                {"symbol": short_sym, "side": "buy",  "qty": str(qty), "position_intent": "close"},
-                {"symbol": long_sym,  "side": "sell", "qty": str(qty), "position_intent": "close"},
-            ],
-        }
-        try:
-            resp   = await self.alpaca.http_client.post("/v2/orders", json=body)
-            result = resp.json()
-            if resp.status_code in (200, 201):
-                logger.info(f"0DTE close submitted → {result.get('id')}")
-            else:
-                logger.error(f"0DTE close rejected ({resp.status_code}): {result}")
-        except Exception as e:
-            logger.error(f"0DTE close error: {e}")
+        if not (settings.is_paper and settings.paper_options_sim):
+            body = {
+                "type":          "limit",
+                "time_in_force": "day",
+                "order_class":   "multileg",
+                "limit_price":   str(round(close_cost, 2)),
+                "legs": [
+                    {"symbol": short_sym, "side": "buy",  "qty": str(qty), "position_intent": "close"},
+                    {"symbol": long_sym,  "side": "sell", "qty": str(qty), "position_intent": "close"},
+                ],
+            }
+            try:
+                resp   = await self.alpaca.http_client.post("/v2/orders", json=body)
+                result = resp.json()
+                if resp.status_code in (200, 201):
+                    logger.info(f"0DTE close submitted → {result.get('id')}")
+                else:
+                    logger.error(f"0DTE close rejected ({resp.status_code}): {result}")
+            except Exception as e:
+                logger.error(f"0DTE close error: {e}")
 
         self.tracker.close_position(
             strategy="0dte",
