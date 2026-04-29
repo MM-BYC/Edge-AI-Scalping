@@ -12,6 +12,7 @@
 		A0A16A1F0BE4F9A52C2A3C80 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BD60B13F417C04B059B98D /* DashboardView.swift */; };
 		E71D8FDA8CB735D929841B27 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B5BB4B899832E4D1CF14BC /* App.swift */; };
 		F6B640A5A6764E62E0DAD1FC /* PositionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A8E194EEC29314163AC91B /* PositionsView.swift */; };
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* TickersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +21,7 @@
 		402AF134794B53476105E48F /* BotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotService.swift; sourceTree = "<group>"; };
 		77A8E194EEC29314163AC91B /* PositionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionsView.swift; sourceTree = "<group>"; };
 		83B5BB4B899832E4D1CF14BC /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TickersView.swift; sourceTree = "<group>"; };
 		D4BD60B13F417C04B059B98D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		F4838BC656B6F0E6FE9C751B /* EdgeAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EdgeAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -42,6 +44,7 @@
 				177DF06B909DDB76904FF4B0 /* ControlView.swift */,
 				D4BD60B13F417C04B059B98D /* DashboardView.swift */,
 				77A8E194EEC29314163AC91B /* PositionsView.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -133,6 +136,7 @@
 				9F6A1F92EBD7F389911DBC1A /* ControlView.swift in Sources */,
 				A0A16A1F0BE4F9A52C2A3C80 /* DashboardView.swift in Sources */,
 				F6B640A5A6764E62E0DAD1FC /* PositionsView.swift in Sources */,
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* TickersView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
