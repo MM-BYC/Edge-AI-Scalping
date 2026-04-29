@@ -6,6 +6,13 @@ struct PressButtonStyle: ButtonStyle {
     let color: Color
     let isActive: Bool
 
+    private var displayColor: Color {
+        isActive ? Color(white: 0.36) : color
+    }
+    private var labelColor: Color {
+        isActive ? Color(white: 0.55) : (color == Theme.cyan ? .black : .white)
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed || isActive
         return configuration.label
@@ -14,14 +21,14 @@ struct PressButtonStyle: ButtonStyle {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(color.opacity(0.5))
+                        .fill(displayColor.opacity(0.5))
                         .offset(x: pressed ? 0 : 3, y: pressed ? 0 : 4)
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(pressed ? color.opacity(0.75) : color)
+                        .fill(pressed ? displayColor.opacity(0.85) : displayColor)
                         .offset(x: pressed ? 2 : 0, y: pressed ? 2 : 0)
                 }
             )
-            .foregroundColor(color == Theme.cyan ? .black : .white)
+            .foregroundColor(labelColor)
             .fontWeight(.semibold)
             .offset(x: pressed ? 2 : 0, y: pressed ? 2 : 0)
             .animation(.easeOut(duration: 0.1), value: pressed)
@@ -32,10 +39,11 @@ struct PressButtonStyle: ButtonStyle {
 
 struct ControlView: View {
     @EnvironmentObject var botService: BotService
-    @State private var serverURL  = UserDefaults.standard.string(forKey: "botServerURL")
-                                    ?? "ws://192.168.1.192:8765/ws/live"
-    @State private var editingURL = false
-    @State private var activeCmd: String? = nil
+    @State private var serverURL      = UserDefaults.standard.string(forKey: "botServerURL")
+                                        ?? "ws://192.168.1.192:8765/ws/live"
+    @State private var editingURL     = false
+    @State private var activeCmd:     String? = nil   // start | pause | stop
+    @State private var lastConnAction: String? = nil  // connect | disconnect
 
     var body: some View {
         NavigationView {
@@ -66,18 +74,24 @@ struct ControlView: View {
                             }
 
                             HStack(spacing: 12) {
-                                Button(action: { botService.connect(to: serverURL) }) {
+                                Button(action: {
+                                    lastConnAction = "connect"
+                                    botService.connect(to: serverURL)
+                                }) {
                                     Text("Connect")
                                 }
                                 .buttonStyle(PressButtonStyle(color: Theme.cyan,
-                                                              isActive: botService.isConnected))
+                                                              isActive: lastConnAction == "connect"))
                                 .disabled(botService.isConnected)
 
-                                Button(action: { botService.disconnect() }) {
+                                Button(action: {
+                                    lastConnAction = "disconnect"
+                                    botService.disconnect()
+                                }) {
                                     Text("Disconnect")
                                 }
                                 .buttonStyle(PressButtonStyle(color: Theme.loss,
-                                                              isActive: !botService.isConnected))
+                                                              isActive: lastConnAction == "disconnect"))
                                 .disabled(!botService.isConnected)
                             }
                         }
@@ -92,7 +106,7 @@ struct ControlView: View {
                                 HStack(spacing: 12) {
                                     Button(action: { send("start") }) { Text("Start") }
                                         .buttonStyle(PressButtonStyle(color: Theme.profit,
-                                                                      isActive: botService.botStatus?.isRunning == true))
+                                                                      isActive: activeCmd == "start"))
 
                                     Button(action: { send("pause") }) { Text("Pause") }
                                         .buttonStyle(PressButtonStyle(color: Theme.caution,
@@ -100,7 +114,7 @@ struct ControlView: View {
 
                                     Button(action: { send("stop") }) { Text("Stop") }
                                         .buttonStyle(PressButtonStyle(color: Theme.loss,
-                                                                      isActive: botService.botStatus?.isRunning == false))
+                                                                      isActive: activeCmd == "stop"))
                                 }
                             }
                             .padding()

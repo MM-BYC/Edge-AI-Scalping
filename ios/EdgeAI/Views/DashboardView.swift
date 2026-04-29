@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var botService: BotService
+    @State private var lastConnAction: String? = nil
 
     var body: some View {
         NavigationView {
@@ -110,20 +111,32 @@ struct DashboardView: View {
 
                         // ── Connect / Disconnect ──────────────────────────
                         if botService.isConnected {
-                            Button(action: { botService.disconnect() }) {
+                            Button(action: {
+                                lastConnAction = "disconnect"
+                                botService.disconnect()
+                            }) {
                                 Text("Disconnect from Bot")
                                     .frame(maxWidth: .infinity).padding()
-                                    .background(Theme.loss).foregroundColor(.white).cornerRadius(8)
+                                    .background(lastConnAction == "disconnect"
+                                                ? Color(white: 0.36) : Theme.loss)
+                                    .foregroundColor(lastConnAction == "disconnect"
+                                                     ? Color(white: 0.55) : .white)
+                                    .cornerRadius(8)
                             }
                         } else {
                             Button(action: {
+                                lastConnAction = "connect"
                                 botService.connect(to: UserDefaults.standard
                                     .string(forKey: "botServerURL")
                                     ?? "ws://192.168.1.192:8765/ws/live")
                             }) {
                                 Text("Connect to Bot")
                                     .frame(maxWidth: .infinity).padding()
-                                    .background(Theme.cyan).foregroundColor(.black).cornerRadius(8)
+                                    .background(lastConnAction == "connect"
+                                                ? Color(white: 0.36) : Theme.cyan)
+                                    .foregroundColor(lastConnAction == "connect"
+                                                     ? Color(white: 0.55) : .black)
+                                    .cornerRadius(8)
                             }
                         }
                     }
