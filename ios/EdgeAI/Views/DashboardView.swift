@@ -84,8 +84,18 @@ struct DashboardView: View {
 
                 Spacer()
 
-                // Connect Button
-                if !botService.isConnected {
+                if botService.isConnected {
+                    Button(action: {
+                        botService.disconnect()
+                    }) {
+                        Text("Disconnect from Bot")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                    }
+                } else {
                     Button(action: {
                         botService.connect(to: "ws://192.168.1.192:8765/ws/live")
                     }) {
