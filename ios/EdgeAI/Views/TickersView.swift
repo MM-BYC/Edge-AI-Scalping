@@ -159,15 +159,6 @@ struct TickersView: View {
                     .padding(.vertical, 10)
                     .background(.ultraThinMaterial)
 
-                    // ── Confirmation banner ───────────────────────────────
-                    if appliedBanner {
-                        Text("Tickers sent to bot")
-                            .font(.caption).fontWeight(.semibold).foregroundColor(.white)
-                            .frame(maxWidth: .infinity).padding(.vertical, 6)
-                            .background(Theme.profit)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
                     // ── Apply button ──────────────────────────────────────
                     Button(action: applyAll) {
                         HStack {
@@ -181,8 +172,17 @@ struct TickersView: View {
                     }
                     .disabled(!botService.isConnected)
                     .padding(.horizontal)
-                    .padding(.bottom, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
                     .background(.ultraThinMaterial)
+
+                    // ── Confirmation banner (permanent space) ─────────────
+                    Text("Tickers sent to bot")
+                        .font(.caption).fontWeight(.semibold).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                        .background(Theme.profit)
+                        .opacity(appliedBanner ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: appliedBanner)
                 }
             }
             .navigationTitle("Tickers")
