@@ -28,7 +28,9 @@
       "Bash(git commit -m 'Automate iOS Xcode project setup and create project structure *)",
       "Bash(ipconfig getifaddr *)",
       "Bash(awk '{print $2}')",
-      "Bash(git commit -m 'Clean up duplicate iOS project directories *)"
+      "Bash(git commit -m 'Clean up duplicate iOS project directories *)",
+      "Bash(rm -rf EdgeAI.xcodeproj)",
+      "Bash(xcodegen generate *)"
     ],
     "additionalDirectories": [
       "/tmp"
