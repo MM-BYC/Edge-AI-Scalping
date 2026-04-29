@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from engine.broker.alpaca_client import AlpacaClient
 from engine.execution.risk import RiskManager
+from engine.execution.pnl_tracker import PnLTracker
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,11 @@ class ExecutionLog:
 class OrderRouter:
     """Route signals to orders with risk management"""
 
-    def __init__(self, alpaca_client: AlpacaClient, risk_manager: RiskManager):
+    def __init__(self, alpaca_client: AlpacaClient, risk_manager: RiskManager,
+                 pnl_tracker: Optional[PnLTracker] = None):
         self.alpaca = alpaca_client
         self.risk = risk_manager
+        self.pnl = pnl_tracker
         self.execution_log: List[ExecutionLog] = []
         self.open_orders: Dict[str, Dict] = {}
         self.pending_symbols = set()
@@ -98,6 +101,11 @@ class OrderRouter:
                 self.execution_log.append(log_entry)
                 self.risk.record_trade()
 
+                # Record fill immediately so the position appears on iOS right away.
+                # The Alpaca sync loop will correct the exact fill price within 15s.
+                if self.pnl:
+                    self.pnl.record_fill(symbol, side, qty, price)
+
                 logger.info(f"Entry order submitted: {symbol} {qty} {side} @ market (~${price:.2f})")
                 return order_data
             else:
@@ -126,6 +134,8 @@ class OrderRouter:
             order_data = await self.alpaca.submit_market_order(symbol, abs(qty), side)
 
             if order_data and "id" in order_data:
+                if self.pnl:
+                    self.pnl.record_fill(symbol, side, abs(qty), price)
                 logger.info(f"Position closed: {symbol} {qty} @ market (~${price:.2f}) ({reason})")
                 self.pending_symbols.discard(symbol)
                 return order_data

@@ -57,8 +57,8 @@ class TradingBot:
         self.feed = DataFeed(self.alpaca)
         self.ensemble = SignalEnsemble(str(settings.model_path_full))
         self.risk    = RiskManager()
-        self.router  = OrderRouter(self.alpaca, self.risk)
         self.pnl     = PnLTracker()
+        self.router  = OrderRouter(self.alpaca, self.risk, self.pnl)
         self.options = OptionsTracker()
 
         # 0DTE SPY credit spread router (opt-in via ZERO_DTE_ENABLED=true in .env)
@@ -113,6 +113,10 @@ class TradingBot:
             # Start intraday feedback agent in background
             asyncio.create_task(self._live_feedback.start())
             logger.info("LiveFeedbackAgent started")
+
+            # Sync open positions from Alpaca every 15s so iOS always shows reality
+            asyncio.create_task(self._sync_alpaca_positions())
+            logger.info("Position sync started (15s interval)")
 
         except Exception as e:
             logger.error(f"Failed to start bot: {e}")
@@ -242,6 +246,17 @@ class TradingBot:
             logger.error(f"Error in main loop: {e}")
         finally:
             await self.stop()
+
+    async def _sync_alpaca_positions(self):
+        """Pull real open positions from Alpaca every 15s and seed PnL tracker."""
+        while self.is_running:
+            try:
+                positions = await self.alpaca.get_positions()
+                if isinstance(positions, list):
+                    self.pnl.sync_from_broker(positions)
+            except Exception as e:
+                logger.warning(f"Position sync error: {e}")
+            await asyncio.sleep(15)
 
     def handle_shutdown(self, signum, frame):
         """Handle SIGTERM/SIGINT"""

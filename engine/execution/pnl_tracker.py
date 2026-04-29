@@ -155,6 +155,54 @@ class PnLTracker:
             "open_trades": self.get_open_trades()
         }
 
+    def sync_from_broker(self, alpaca_positions: List[Dict]):
+        """
+        Merge live Alpaca position data into the tracker.
+        Adds new positions the bot missed, updates prices, removes closed ones.
+        Called periodically so the iOS app always reflects reality.
+        """
+        reported: set = set()
+
+        for pos in alpaca_positions:
+            try:
+                symbol       = pos.get("symbol", "")
+                qty          = float(pos.get("qty", 0))
+                entry_price  = float(pos.get("avg_entry_price", 0))
+                current_price = float(pos.get("current_price", entry_price))
+                unreal_pnl   = float(pos.get("unrealized_pl", 0))
+                unreal_pct   = float(pos.get("unrealized_plpc", 0))
+
+                if not symbol or qty == 0:
+                    continue
+
+                reported.add(symbol)
+
+                if symbol in self.trades:
+                    t = self.trades[symbol]
+                    t.entry_price       = entry_price
+                    t.entry_qty         = qty
+                    t.current_price     = current_price
+                    t.unrealized_pnl    = unreal_pnl
+                    t.unrealized_pnl_pct = unreal_pct
+                else:
+                    self.trades[symbol] = TradeSnapshot(
+                        symbol=symbol,
+                        entry_time=datetime.now(),
+                        entry_price=entry_price,
+                        entry_qty=qty,
+                        current_price=current_price,
+                        unrealized_pnl=unreal_pnl,
+                        unrealized_pnl_pct=unreal_pct,
+                    )
+                    logger.info(f"Position synced from broker: {symbol} qty={qty} @ ${entry_price:.2f}")
+            except Exception as e:
+                logger.warning(f"Error syncing position {pos.get('symbol','?')}: {e}")
+
+        # Drop positions the broker no longer reports (closed externally)
+        for symbol in [s for s in self.trades if s not in reported]:
+            logger.info(f"Position removed (closed on broker side): {symbol}")
+            del self.trades[symbol]
+
     def reset_daily(self):
         """Reset daily stats (call at market close)"""
         self.daily_stats = {
