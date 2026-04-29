@@ -5,6 +5,7 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     @Published var botStatus:       BotStatus?
     @Published var positions:       [Position]       = []
     @Published var pnlStats:        PnLStats?
+    @Published var marketData:      [String: MarketData] = [:]
     @Published var connectionStatus = "Disconnected"
     @Published var winningTicker:   String?          = nil
 
@@ -73,6 +74,7 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
             let update = try JSONDecoder().decode(LiveUpdate.self, from: data)
             DispatchQueue.main.async {
                 self.botStatus            = update.botStatus
+                self.marketData           = update.marketData
                 self.positions            = update.positions
                 self.pnlStats             = update.pnl
                 self.winningTicker        = update.winningTicker
@@ -214,9 +216,19 @@ struct PnLStats: Codable {
     }
 }
 
+struct MarketData: Codable, Identifiable {
+    var id: String { symbol }
+    var symbol: String
+    var price: Double
+    var timestamp: String?
+    var volume: Double
+    var bars: Int
+}
+
 struct LiveUpdate: Codable {
     var timestamp:             String
     var botStatus:             BotStatus
+    var marketData:            [String: MarketData]
     var positions:             [Position]
     var pnl:                   PnLStats
     var winningTicker:         String?
@@ -231,6 +243,7 @@ struct LiveUpdate: Codable {
     var winningZeroDTE:        String?
     enum CodingKeys: String, CodingKey {
         case timestamp; case botStatus = "bot_status"
+        case marketData = "market_data"
         case positions, pnl
         case winningTicker         = "winning_ticker"
         case sellPutPositions      = "sell_put_positions"

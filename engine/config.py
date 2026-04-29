@@ -5,7 +5,7 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    model_config = ConfigDict(env_file=".env", case_sensitive=False)
+    model_config = ConfigDict(env_file=str(Path(__file__).resolve().parent / ".env"), case_sensitive=False)
 
     # Alpaca API
     alpaca_api_key: str
@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8765
     api_log_level: str = "info"
+
+    # Market data
+    market_data_poll_seconds: float = 5.0
 
     # Backtesting
     backtest_lookback_days: int = 365

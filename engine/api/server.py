@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
 import uvloop
@@ -48,6 +48,7 @@ manager          = ConnectionManager()
 pnl_tracker:     Optional[PnLTracker]     = None
 risk_manager:    Optional[RiskManager]    = None
 options_tracker: Optional[OptionsTracker] = None
+data_feed: Optional[Any] = None
 bot_is_running   = False
 active_symbols:           Optional[List[str]] = None
 active_sell_put_symbols:  Optional[List[str]] = None
@@ -210,6 +211,26 @@ def _build_snapshot() -> Dict:
         winning_cs    = options_tracker.get_winning_credit_spread()
         winning_dte   = options_tracker.get_winning_zero_dte()
 
+    market_data = {}
+    if data_feed:
+        for symbol in settings.symbols_list:
+            latest = data_feed.get_latest_bars(symbol, lookback=1)
+            closes = latest.get("closes", [])
+            timestamps = latest.get("timestamps", [])
+            volumes = latest.get("volumes", [])
+            if closes:
+                timestamp = timestamps[-1] if timestamps else None
+                if hasattr(timestamp, "isoformat"):
+                    timestamp = timestamp.isoformat()
+
+                market_data[symbol] = {
+                    "symbol": symbol,
+                    "price": closes[-1],
+                    "timestamp": timestamp,
+                    "volume": volumes[-1] if volumes else 0,
+                    "bars": latest.get("count", 0),
+                }
+
     return {
         "timestamp": datetime.now().isoformat(),
         "bot_status": {
@@ -221,6 +242,7 @@ def _build_snapshot() -> Dict:
             "positions":    risk_manager.metrics.position_count,
             "trades_today": risk_manager.daily_trades,
         },
+        "market_data":             market_data,
         "positions":               open_trades,
         "pnl":                     pnl_tracker.get_stats(),
         "winning_ticker":           winning_ticker,
@@ -236,11 +258,22 @@ def _build_snapshot() -> Dict:
     }
 
 
-def set_dependencies(pnl: PnLTracker, risk: RiskManager, opts: Optional[OptionsTracker] = None):
-    global pnl_tracker, risk_manager, options_tracker
+def set_dependencies(
+    pnl: PnLTracker,
+    risk: RiskManager,
+    opts: Optional[OptionsTracker] = None,
+    feed: Optional[Any] = None,
+):
+    global pnl_tracker, risk_manager, options_tracker, data_feed
     pnl_tracker     = pnl
     risk_manager    = risk
     options_tracker = opts
+    data_feed       = feed
+
+
+def set_bot_running(is_running: bool):
+    global bot_is_running
+    bot_is_running = is_running
 
 
 if __name__ == "__main__":

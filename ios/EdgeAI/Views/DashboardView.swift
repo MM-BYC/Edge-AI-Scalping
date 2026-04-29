@@ -26,10 +26,20 @@ struct DashboardView: View {
                         if let status = botService.botStatus {
                             infoBlock {
                                 row("Equity",       "$\(fmt2(status.equity))")
+                                row("Cash",         "$\(fmt2(status.cash))")
                                 row("Daily P&L",    "$\(fmt2(status.dailyPnl))",
                                     color: status.dailyPnl >= 0 ? Theme.profit : Theme.loss)
                                 row("Positions",    "\(status.positions)")
                                 row("Trades Today", "\(status.tradestoday)")
+                            }
+                        }
+
+                        // ── Live Alpaca market data ───────────────────────
+                        if !botService.marketData.isEmpty {
+                            labelledBlock(label: "LIVE ALPACA DATA", labelColor: Theme.cyan) {
+                                ForEach(botService.marketData.values.sorted { $0.symbol < $1.symbol }) { quote in
+                                    row(quote.symbol, "$\(fmt2(quote.price))")
+                                }
                             }
                         }
 

@@ -6,31 +6,30 @@ Runs on Mac mini, orchestrates all trading logic and iOS communication
 
 import asyncio
 import logging
-import sys
 import signal
+import sys
 import time
-import uvloop
-from datetime import datetime
-from pathlib import Path
 from typing import Optional
+
+import uvicorn
+import uvloop
 
 # High-performance event loop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-from engine.config import settings
+from engine.agents.live_feedback_agent import LiveFeedbackAgent
+from engine.agents.orchestrator import RetrainingOrchestrator
+from engine.api.server import create_app, set_bot_running, set_dependencies
 from engine.broker.alpaca_client import AlpacaClient
+from engine.config import settings
 from engine.data.feed import DataFeed
-from engine.signals.ensemble import SignalEnsemble
+from engine.execution.options_router import ZeroDTERouter
+from engine.execution.options_tracker import OptionsTracker
+from engine.execution.pnl_tracker import PnLTracker
 from engine.execution.risk import RiskManager
 from engine.execution.router import OrderRouter
-from engine.execution.pnl_tracker import PnLTracker
-from engine.execution.options_tracker import OptionsTracker
-from engine.execution.options_router import ZeroDTERouter
-from engine.api.server import create_app, set_dependencies
-from engine.agents.orchestrator import RetrainingOrchestrator
-from engine.agents.live_feedback_agent import LiveFeedbackAgent
 from engine.scheduler import NightlyScheduler
-import uvicorn
+from engine.signals.ensemble import SignalEnsemble
 
 # Setup logging
 logging.basicConfig(
@@ -39,7 +38,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
         # logging.FileHandler(settings.log_file)  # Uncomment to enable file logging
-    ]
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ class TradingBot:
     """Main trading bot orchestrator"""
 
     def __init__(self):
-        logger.info(f"Initializing Edge AI Scalping Bot")
+        logger.info("Initializing Edge AI Scalping Bot")
         logger.info(f"Mode: {settings.mode.upper()}")
         logger.info(f"Symbols: {settings.symbols_list}")
 
@@ -56,15 +55,16 @@ class TradingBot:
         self.alpaca = AlpacaClient()
         self.feed = DataFeed(self.alpaca)
         self.ensemble = SignalEnsemble(str(settings.model_path_full))
-        self.risk    = RiskManager()
-        self.pnl     = PnLTracker()
-        self.router  = OrderRouter(self.alpaca, self.risk, self.pnl)
+        self.risk = RiskManager()
+        self.pnl = PnLTracker()
+        self.router = OrderRouter(self.alpaca, self.risk, self.pnl)
         self.options = OptionsTracker()
 
         # 0DTE SPY credit spread router (opt-in via ZERO_DTE_ENABLED=true in .env)
         self._zero_dte: Optional[ZeroDTERouter] = (
             ZeroDTERouter(self.alpaca, self.options, self.risk)
-            if settings.zero_dte_enabled else None
+            if settings.zero_dte_enabled
+            else None
         )
         if self._zero_dte:
             logger.info("0DTE SPY credit spread mode enabled")
@@ -74,11 +74,11 @@ class TradingBot:
         self.last_bar_time = {}
 
         # Nightly retraining pipeline
-        self._orchestrator   = RetrainingOrchestrator(ensemble=self.ensemble)
-        self._scheduler      = NightlyScheduler(self._orchestrator)
+        self._orchestrator = RetrainingOrchestrator(ensemble=self.ensemble)
+        self._scheduler = NightlyScheduler(self._orchestrator)
 
         # Intraday live feedback (adjusts ensemble weights from live trade outcomes)
-        self._live_feedback  = LiveFeedbackAgent(
+        self._live_feedback = LiveFeedbackAgent(
             bus=self._orchestrator.bus,
             registry=self._orchestrator.registry,
             pnl_tracker=self.pnl,
@@ -101,9 +101,12 @@ class TradingBot:
             self._start_api_server()
 
             # Set dependencies for API
-            set_dependencies(self.pnl, self.risk, self.options)
+            set_dependencies(self.pnl, self.risk, self.options, self.feed)
 
             self.is_running = True
+            set_bot_running(True)
+            await self._sync_alpaca_account()
+            await self._sync_alpaca_positions_once()
             logger.info("Bot ready, waiting for market data...")
 
             # Start nightly retraining scheduler in background
@@ -143,6 +146,7 @@ class TradingBot:
             await self.feed.stop()
 
             self.is_running = False
+            set_bot_running(False)
             logger.info("Bot stopped")
 
         except Exception as e:
@@ -156,7 +160,7 @@ class TradingBot:
             host=settings.api_host,
             port=settings.api_port,
             log_level=settings.api_log_level,
-            access_log=False
+            access_log=False,
         )
         server = uvicorn.Server(config)
 
@@ -165,6 +169,7 @@ class TradingBot:
             asyncio.run(server.serve())
 
         import threading
+
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
         logger.info(f"API server started on {settings.api_host}:{settings.api_port}")
@@ -211,15 +216,11 @@ class TradingBot:
         self.pnl.update_market_prices(symbol, bar.close)
 
         # Route equity signal
-        asyncio.create_task(
-            self.router.route_signal(symbol, signal, bar.close, confidence)
-        )
+        asyncio.create_task(self.router.route_signal(symbol, signal, bar.close, confidence))
 
         # Route 0DTE signal for SPY when enabled
         if self._zero_dte and symbol == "SPY":
-            asyncio.create_task(
-                self._zero_dte.route_signal(signal, bar.close, confidence)
-            )
+            asyncio.create_task(self._zero_dte.route_signal(signal, bar.close, confidence))
 
     async def run(self):
         """Main event loop"""
@@ -248,15 +249,27 @@ class TradingBot:
             await self.stop()
 
     async def _sync_alpaca_positions(self):
-        """Pull real open positions from Alpaca every 15s and seed PnL tracker."""
+        """Pull account and open positions from Alpaca every 15s."""
         while self.is_running:
             try:
-                positions = await self.alpaca.get_positions()
-                if isinstance(positions, list):
-                    self.pnl.sync_from_broker(positions)
+                await self._sync_alpaca_account()
+                await self._sync_alpaca_positions_once()
             except Exception as e:
                 logger.warning(f"Position sync error: {e}")
             await asyncio.sleep(15)
+
+    async def _sync_alpaca_account(self):
+        """Seed risk metrics from Alpaca account values used by iOS dashboard."""
+        account = await self.alpaca.get_account()
+        if isinstance(account, dict):
+            self.risk.update_metrics(account)
+
+    async def _sync_alpaca_positions_once(self):
+        """Seed PnL tracker from currently open broker positions."""
+        positions = await self.alpaca.get_positions()
+        if isinstance(positions, list):
+            self.pnl.sync_from_broker(positions)
+            self.risk.metrics.position_count = len(positions)
 
     def handle_shutdown(self, signum, frame):
         """Handle SIGTERM/SIGINT"""

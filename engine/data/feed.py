@@ -18,6 +18,8 @@ class DataFeed:
         self.buffers: Dict[str, BarBuffer] = {}
         self.callbacks: List[Callable] = []
         self.is_running = False
+        self._poll_task: Optional[asyncio.Task] = None
+        self._last_bar_timestamp: Dict[str, datetime] = {}
 
         for symbol in settings.symbols_list:
             self.buffers[symbol] = BarBuffer(symbol, max_bars=500)
@@ -43,13 +45,42 @@ class DataFeed:
         """Start the feed (connects to data source)"""
         self.is_running = True
         await self.alpaca.connect()
+        self._poll_task = asyncio.create_task(self._poll_latest_bars())
         logger.info(f"Data feed started for symbols: {list(self.buffers.keys())}")
 
     async def stop(self):
         """Stop the feed"""
         self.is_running = False
+        if self._poll_task:
+            self._poll_task.cancel()
+            try:
+                await self._poll_task
+            except asyncio.CancelledError:
+                pass
+            self._poll_task = None
         await self.alpaca.disconnect()
         logger.info("Data feed stopped")
+
+    async def _poll_latest_bars(self):
+        """Poll Alpaca latest bars and fan them into the same callbacks as a stream."""
+        symbols = list(self.buffers.keys())
+        interval = max(float(settings.market_data_poll_seconds), 1.0)
+
+        while self.is_running:
+            try:
+                bars = await self.alpaca.get_latest_bars(symbols)
+                for symbol, bar in bars.items():
+                    last_ts = self._last_bar_timestamp.get(symbol)
+                    if last_ts is not None and bar.timestamp <= last_ts:
+                        continue
+                    self._last_bar_timestamp[symbol] = bar.timestamp
+                    self._on_bar(bar)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"Market data poll error: {e}")
+
+            await asyncio.sleep(interval)
 
     def _on_bar(self, bar: Bar):
         """Handle incoming bar (called by broker)"""

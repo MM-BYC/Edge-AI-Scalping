@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Dict, Optional, List
 import httpx
 from dataclasses import dataclass
@@ -44,6 +44,14 @@ class AlpacaClient:
             },
             timeout=30.0
         )
+        self.data_client = httpx.AsyncClient(
+            base_url=settings.alpaca_data_url,
+            headers={
+                "APCA-API-KEY-ID": settings.alpaca_api_key,
+                "APCA-API-SECRET-KEY": settings.alpaca_secret_key,
+            },
+            timeout=30.0
+        )
         self.bar_callbacks: Dict[str, List[Callable]] = {}
         self.fill_callbacks: Dict[str, List[Callable]] = {}
         self.is_connected = False
@@ -56,6 +64,7 @@ class AlpacaClient:
     async def disconnect(self):
         """Close connections"""
         await self.http_client.aclose()
+        await self.data_client.aclose()
         self.is_connected = False
         logger.info("Alpaca client disconnected")
 
@@ -80,6 +89,42 @@ class AlpacaClient:
         """Fetch open positions"""
         response = await self.http_client.get("/v2/positions")
         return response.json()
+
+    async def get_latest_bars(self, symbols: List[str]) -> Dict[str, Bar]:
+        """Fetch latest market bars from Alpaca Data API."""
+        if not symbols:
+            return {}
+
+        response = await self.data_client.get(
+            "/v2/stocks/bars/latest",
+            params={"symbols": ",".join(symbols), "feed": "iex"},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        raw_bars = payload.get("bars", {})
+
+        bars: Dict[str, Bar] = {}
+        for symbol, raw in raw_bars.items():
+            if not raw:
+                continue
+
+            timestamp = raw.get("t")
+            if isinstance(timestamp, str):
+                timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            else:
+                timestamp = datetime.now(timezone.utc)
+
+            bars[symbol] = Bar(
+                symbol=symbol,
+                timestamp=timestamp,
+                open=float(raw.get("o", 0.0)),
+                high=float(raw.get("h", 0.0)),
+                low=float(raw.get("l", 0.0)),
+                close=float(raw.get("c", 0.0)),
+                volume=int(raw.get("v", 0)),
+            )
+
+        return bars
 
     async def get_orders(self, status: str = "open"):
         """Fetch orders by status"""
