@@ -3,7 +3,6 @@ import SwiftUI
 @main
 struct EdgeAIApp: App {
     let botService = BotService()
-    @State private var splashDone = false
 
     init() {
         applyTabBarStyle()
@@ -12,25 +11,9 @@ struct EdgeAIApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                ContentView()
-                    .environmentObject(botService)
-                    .opacity(splashDone ? 1 : 0)
-
-                if !splashDone {
-                    SplashView()
-                        .transition(.opacity)
-                        .zIndex(1)
-                }
-            }
-            .preferredColorScheme(.dark)
-            .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-                    withAnimation(.easeInOut(duration: 0.7)) {
-                        splashDone = true
-                    }
-                }
-            }
+            ContentView()
+                .environmentObject(botService)
+                .preferredColorScheme(.dark)
         }
     }
 
