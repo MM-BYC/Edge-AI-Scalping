@@ -87,7 +87,7 @@ struct DashboardView: View {
                 // Connect Button
                 if !botService.isConnected {
                     Button(action: {
-                        botService.connect(to: "ws://192.168.1.100:8765")
+                        botService.connect(to: "ws://192.168.1.192:8765/ws/live")
                     }) {
                         Text("Connect to Bot")
                             .frame(maxWidth: .infinity)

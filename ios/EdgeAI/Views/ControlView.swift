@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ControlView: View {
     @EnvironmentObject var botService: BotService
-    @State private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.100:8765"
+    @State private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.192:8765/ws/live"
     @State private var editingURL = false
 
     var body: some View {
@@ -15,7 +15,7 @@ struct ControlView: View {
 
                     HStack {
                         if editingURL {
-                            TextField("ws://192.168.1.100:8765", text: $serverURL)
+                            TextField("ws://192.168.1.192:8765/ws/live", text: $serverURL)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.caption)
                         } else {
