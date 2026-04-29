@@ -110,6 +110,22 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         ])
     }
 
+    func refresh() async {
+        let base = serverURL
+            .replacingOccurrences(of: "ws://",  with: "http://")
+            .replacingOccurrences(of: "wss://", with: "https://")
+            .replacingOccurrences(of: "/ws/live", with: "")
+        guard let url = URL(string: base + "/snapshot") else { return }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let json = String(data: data, encoding: .utf8) {
+                handleMessage(json)
+            }
+        } catch {
+            print("Refresh error: \(error)")
+        }
+    }
+
     private func postControl(_ body: [String: Any]) {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else { return }
         let base = serverURL

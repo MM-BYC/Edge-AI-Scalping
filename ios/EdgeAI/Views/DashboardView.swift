@@ -5,129 +5,121 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 14) {
+            ZStack {
+                Theme.background.ignoresSafeArea()
 
-                    // ── Connection status ─────────────────────────────
-                    HStack {
-                        Circle()
-                            .fill(botService.isConnected ? Color.green : Color.red)
-                            .frame(width: 8, height: 8)
-                        Text(botService.connectionStatus).font(.caption)
-                        Spacer()
+                ScrollView {
+                    VStack(spacing: 14) {
+
+                        // ── Connection status ─────────────────────────────
+                        HStack {
+                            Circle()
+                                .fill(botService.isConnected ? Theme.profit : Theme.loss)
+                                .frame(width: 8, height: 8)
+                            Text(botService.connectionStatus).font(.caption)
+                            Spacer()
+                        }
+                        .padding()
+                        .glassCard()
+
+                        // ── Bot status ────────────────────────────────────
+                        if let status = botService.botStatus {
+                            infoBlock {
+                                row("Equity",       "$\(fmt2(status.equity))")
+                                row("Daily P&L",    "$\(fmt2(status.dailyPnl))",
+                                    color: status.dailyPnl >= 0 ? Theme.profit : Theme.loss)
+                                row("Positions",    "\(status.positions)")
+                                row("Trades Today", "\(status.tradestoday)")
+                            }
+                        }
+
+                        // ── Equity P&L stats ──────────────────────────────
+                        if let pnl = botService.pnlStats {
+                            infoBlock {
+                                row("Total P&L",    "$\(fmt2(pnl.totalPnl))",
+                                    color: pnl.totalPnl >= 0 ? Theme.profit : Theme.loss)
+                                row("Win Rate",     "\(String(format: "%.1f", pnl.winRatePct))%")
+                                row("Total Trades", "\(pnl.totalTrades)")
+                            }
+                        }
+
+                        // ── Winning Ticker Traded ─────────────────────────
+                        winnerBlock(label: "Winning Ticker Traded",
+                                    ticker: botService.winningTicker, color: Theme.profit)
+
+                        // ── Sell Put Option ───────────────────────────────
+                        if let sp = botService.sellPutStats {
+                            labelledBlock(label: "SELL PUT OPTION", labelColor: Theme.caution) {
+                                row("Total P&L",  "$\(fmt2(sp.totalPnl))",
+                                    color: sp.totalPnl >= 0 ? Theme.profit : Theme.loss)
+                                row("Realized",   "$\(fmt2(sp.realizedPnl))")
+                                row("Unrealized", "$\(fmt2(sp.unrealizedPnl))")
+                                row("Open Pos.",  "\(sp.openPositions)")
+                                row("Win Rate",   "\(String(format: "%.1f", sp.winRate * 100))%")
+                            }
+                        } else {
+                            emptyOptionBlock(label: "SELL PUT OPTION", color: Theme.caution)
+                        }
+
+                        winnerBlock(label: "Winning SELL PUT",
+                                    ticker: botService.winningSellPut, color: Theme.caution)
+
+                        // ── Credit Spread Option ──────────────────────────
+                        if let cs = botService.creditSpreadStats {
+                            labelledBlock(label: "CREDIT SPREAD OPTION", labelColor: Theme.purple) {
+                                row("Total P&L",  "$\(fmt2(cs.totalPnl))",
+                                    color: cs.totalPnl >= 0 ? Theme.profit : Theme.loss)
+                                row("Realized",   "$\(fmt2(cs.realizedPnl))")
+                                row("Unrealized", "$\(fmt2(cs.unrealizedPnl))")
+                                row("Open Pos.",  "\(cs.openPositions)")
+                                row("Win Rate",   "\(String(format: "%.1f", cs.winRate * 100))%")
+                            }
+                        } else {
+                            emptyOptionBlock(label: "CREDIT SPREAD OPTION", color: Theme.purple)
+                        }
+
+                        winnerBlock(label: "Winning Credit Spread",
+                                    ticker: botService.winningCreditSpread, color: Theme.purple)
+
+                        // ── 0DTE SPY Credit Spread ────────────────────────
+                        if let dte = botService.zeroDTEStats {
+                            labelledBlock(label: "0DTE SPY CREDIT SPREAD", labelColor: Theme.teal) {
+                                row("Total P&L",  "$\(fmt2(dte.totalPnl))",
+                                    color: dte.totalPnl >= 0 ? Theme.profit : Theme.loss)
+                                row("Realized",   "$\(fmt2(dte.realizedPnl))")
+                                row("Unrealized", "$\(fmt2(dte.unrealizedPnl))")
+                                row("Open Pos.",  "\(dte.openPositions)")
+                                row("Win Rate",   "\(String(format: "%.1f", dte.winRate * 100))%")
+                            }
+                        } else {
+                            emptyOptionBlock(label: "0DTE SPY CREDIT SPREAD", color: Theme.teal)
+                        }
+
+                        winnerBlock(label: "Winning 0DTE",
+                                    ticker: botService.winningZeroDTE, color: Theme.teal)
+
+                        // ── Connect / Disconnect ──────────────────────────
+                        if botService.isConnected {
+                            Button(action: { botService.disconnect() }) {
+                                Text("Disconnect from Bot")
+                                    .frame(maxWidth: .infinity).padding()
+                                    .background(Theme.loss).foregroundColor(.white).cornerRadius(8)
+                            }
+                        } else {
+                            Button(action: {
+                                botService.connect(to: UserDefaults.standard
+                                    .string(forKey: "botServerURL")
+                                    ?? "ws://192.168.1.192:8765/ws/live")
+                            }) {
+                                Text("Connect to Bot")
+                                    .frame(maxWidth: .infinity).padding()
+                                    .background(Theme.cyan).foregroundColor(.black).cornerRadius(8)
+                            }
+                        }
                     }
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-
-                    // ── Bot status ────────────────────────────────────
-                    if let status = botService.botStatus {
-                        infoBlock {
-                            row("Equity",       "$\(fmt2(status.equity))")
-                            row("Daily P&L",    "$\(fmt2(status.dailyPnl))",
-                                color: status.dailyPnl >= 0 ? .green : .red)
-                            row("Positions",    "\(status.positions)")
-                            row("Trades Today", "\(status.tradestoday)")
-                        }
-                    }
-
-                    // ── Equity P&L stats ──────────────────────────────
-                    if let pnl = botService.pnlStats {
-                        infoBlock {
-                            row("Total P&L",    "$\(fmt2(pnl.totalPnl))",
-                                color: pnl.totalPnl >= 0 ? .green : .red)
-                            row("Win Rate",     "\(String(format: "%.1f", pnl.winRatePct))%")
-                            row("Total Trades", "\(pnl.totalTrades)")
-                        }
-                    }
-
-                    // ── Winning Ticker Traded ─────────────────────────
-                    winnerBlock(
-                        label: "Winning Ticker Traded",
-                        ticker: botService.winningTicker,
-                        color: .green
-                    )
-
-                    // ── Sell Put Option ───────────────────────────────
-                    if let sp = botService.sellPutStats {
-                        labelledBlock(label: "SELL PUT OPTION", labelColor: .orange) {
-                            row("Total P&L",   "$\(fmt2(sp.totalPnl))",
-                                color: sp.totalPnl >= 0 ? .green : .red)
-                            row("Realized",    "$\(fmt2(sp.realizedPnl))")
-                            row("Unrealized",  "$\(fmt2(sp.unrealizedPnl))")
-                            row("Open Pos.",   "\(sp.openPositions)")
-                            row("Win Rate",    "\(String(format: "%.1f", sp.winRate * 100))%")
-                        }
-                    } else {
-                        emptyOptionBlock(label: "SELL PUT OPTION", color: .orange)
-                    }
-
-                    winnerBlock(
-                        label: "Winning SELL PUT",
-                        ticker: botService.winningSellPut,
-                        color: .orange
-                    )
-
-                    // ── Credit Spread Option ──────────────────────────
-                    if let cs = botService.creditSpreadStats {
-                        labelledBlock(label: "CREDIT SPREAD OPTION", labelColor: .purple) {
-                            row("Total P&L",   "$\(fmt2(cs.totalPnl))",
-                                color: cs.totalPnl >= 0 ? .green : .red)
-                            row("Realized",    "$\(fmt2(cs.realizedPnl))")
-                            row("Unrealized",  "$\(fmt2(cs.unrealizedPnl))")
-                            row("Open Pos.",   "\(cs.openPositions)")
-                            row("Win Rate",    "\(String(format: "%.1f", cs.winRate * 100))%")
-                        }
-                    } else {
-                        emptyOptionBlock(label: "CREDIT SPREAD OPTION", color: .purple)
-                    }
-
-                    winnerBlock(
-                        label: "Winning Credit Spread",
-                        ticker: botService.winningCreditSpread,
-                        color: .purple
-                    )
-
-                    // ── 0DTE SPY Credit Spread ────────────────────────
-                    if let dte = botService.zeroDTEStats {
-                        labelledBlock(label: "0DTE SPY CREDIT SPREAD", labelColor: .cyan) {
-                            row("Total P&L",   "$\(fmt2(dte.totalPnl))",
-                                color: dte.totalPnl >= 0 ? .green : .red)
-                            row("Realized",    "$\(fmt2(dte.realizedPnl))")
-                            row("Unrealized",  "$\(fmt2(dte.unrealizedPnl))")
-                            row("Open Pos.",   "\(dte.openPositions)")
-                            row("Win Rate",    "\(String(format: "%.1f", dte.winRate * 100))%")
-                        }
-                    } else {
-                        emptyOptionBlock(label: "0DTE SPY CREDIT SPREAD", color: .cyan)
-                    }
-
-                    winnerBlock(
-                        label: "Winning 0DTE",
-                        ticker: botService.winningZeroDTE,
-                        color: .cyan
-                    )
-
-                    // ── Connect / Disconnect ──────────────────────────
-                    if botService.isConnected {
-                        Button(action: { botService.disconnect() }) {
-                            Text("Disconnect from Bot")
-                                .frame(maxWidth: .infinity).padding()
-                                .background(Color.red).foregroundColor(.white).cornerRadius(8)
-                        }
-                    } else {
-                        Button(action: {
-                            botService.connect(to: UserDefaults.standard
-                                .string(forKey: "botServerURL")
-                                ?? "ws://192.168.1.192:8765/ws/live")
-                        }) {
-                            Text("Connect to Bot")
-                                .frame(maxWidth: .infinity).padding()
-                                .background(Color.blue).foregroundColor(.white).cornerRadius(8)
-                        }
-                    }
                 }
-                .padding()
+                .refreshable { await botService.refresh() }
             }
             .navigationTitle("Dashboard")
         }
@@ -139,25 +131,20 @@ struct DashboardView: View {
     private func infoBlock<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 12) { content() }
             .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(8)
+            .glassCard()
     }
 
     @ViewBuilder
     private func labelledBlock<Content: View>(
-        label: String,
-        labelColor: Color,
+        label: String, labelColor: Color,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(label)
-                .font(.caption).fontWeight(.bold).foregroundColor(labelColor)
+            Text(label).font(.caption).fontWeight(.bold).foregroundColor(labelColor)
             content()
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(labelColor.opacity(0.4), lineWidth: 1))
+        .glassCard(stroke: labelColor.opacity(0.4))
     }
 
     @ViewBuilder
@@ -165,12 +152,10 @@ struct DashboardView: View {
         HStack {
             Text(label).font(.caption).fontWeight(.bold).foregroundColor(color)
             Spacer()
-            Text("No data").font(.caption).foregroundColor(.gray)
+            Text("No data").font(.caption).foregroundColor(Theme.textMuted)
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(color.opacity(0.3), lineWidth: 1))
+        .glassCard(stroke: color.opacity(0.3))
     }
 
     @ViewBuilder
@@ -179,16 +164,12 @@ struct DashboardView: View {
             Text(label).font(.caption).fontWeight(.bold).foregroundColor(color)
             Text(ticker ?? "--")
                 .font(.largeTitle).fontWeight(.bold)
-                .foregroundColor(ticker != nil ? color : .gray)
+                .foregroundColor(ticker != nil ? color : Theme.textMuted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(color.opacity(0.3), lineWidth: 1))
+        .glassCard(stroke: color.opacity(0.3))
     }
-
-    // MARK: - Row helper
 
     @ViewBuilder
     private func row(_ label: String, _ value: String, color: Color = .primary) -> some View {
@@ -205,5 +186,6 @@ struct DashboardView: View {
 struct DashboardView_Previews: PreviewProvider {
     static var previews: some View {
         DashboardView().environmentObject(BotService())
+            .preferredColorScheme(.dark)
     }
 }

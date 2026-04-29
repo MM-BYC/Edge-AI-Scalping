@@ -152,68 +152,20 @@ def create_app() -> FastAPI:
         else:
             raise HTTPException(status_code=400, detail=f"Unknown action: {command.action}")
 
+    @app.get("/snapshot")
+    async def get_snapshot():
+        """Same payload as the WebSocket push — used by iOS pull-to-refresh."""
+        if risk_manager is None or pnl_tracker is None:
+            raise HTTPException(status_code=503, detail="Bot not initialized")
+        return _build_snapshot()
+
     @app.websocket("/ws/live")
     async def websocket_live(websocket: WebSocket):
         await manager.connect(websocket)
         try:
             while True:
                 if risk_manager and pnl_tracker:
-                    open_trades = pnl_tracker.get_open_trades()
-
-                    # Best winning equity ticker
-                    winning_ticker = None
-                    if open_trades:
-                        best = max(open_trades, key=lambda t: t["unrealized_pnl"])
-                        if best["unrealized_pnl"] > 0:
-                            winning_ticker = best["symbol"]
-
-                    # Option positions & stats
-                    sp_positions   = []
-                    cs_positions   = []
-                    dte_positions  = []
-                    sp_stats       = None
-                    cs_stats       = None
-                    dte_stats      = None
-                    winning_sp     = None
-                    winning_cs     = None
-                    winning_dte    = None
-
-                    if options_tracker:
-                        sp_positions  = options_tracker.get_sell_put_positions()
-                        cs_positions  = options_tracker.get_credit_spread_positions()
-                        dte_positions = options_tracker.get_zero_dte_positions()
-                        sp_stats      = options_tracker.get_sell_put_stats()
-                        cs_stats      = options_tracker.get_credit_spread_stats()
-                        dte_stats     = options_tracker.get_zero_dte_stats()
-                        winning_sp    = options_tracker.get_winning_sell_put()
-                        winning_cs    = options_tracker.get_winning_credit_spread()
-                        winning_dte   = options_tracker.get_winning_zero_dte()
-
-                    update = {
-                        "timestamp": datetime.now().isoformat(),
-                        "bot_status": {
-                            "is_running":   bot_is_running,
-                            "mode":         settings.mode,
-                            "equity":       risk_manager.metrics.total_equity,
-                            "cash":         risk_manager.metrics.cash,
-                            "daily_pnl":    risk_manager.metrics.daily_pnl,
-                            "positions":    risk_manager.metrics.position_count,
-                            "trades_today": risk_manager.daily_trades,
-                        },
-                        "positions":               open_trades,
-                        "pnl":                     pnl_tracker.get_stats(),
-                        "winning_ticker":           winning_ticker,
-                        "sell_put_positions":       sp_positions,
-                        "credit_spread_positions":  cs_positions,
-                        "zero_dte_positions":       dte_positions,
-                        "sell_put_stats":           sp_stats,
-                        "credit_spread_stats":      cs_stats,
-                        "zero_dte_stats":           dte_stats,
-                        "winning_sell_put":         winning_sp,
-                        "winning_credit_spread":    winning_cs,
-                        "winning_zero_dte":         winning_dte,
-                    }
-                    await websocket.send_json(update)
+                    await websocket.send_json(_build_snapshot())
                 await asyncio.sleep(0.5)
 
         except WebSocketDisconnect:
@@ -232,6 +184,56 @@ def create_app() -> FastAPI:
         }
 
     return app
+
+
+def _build_snapshot() -> Dict:
+    """Build the full live-update payload shared by WebSocket and /snapshot."""
+    open_trades    = pnl_tracker.get_open_trades()
+    winning_ticker = None
+    if open_trades:
+        best = max(open_trades, key=lambda t: t["unrealized_pnl"])
+        if best["unrealized_pnl"] > 0:
+            winning_ticker = best["symbol"]
+
+    sp_positions = cs_positions = dte_positions = []
+    sp_stats = cs_stats = dte_stats = None
+    winning_sp = winning_cs = winning_dte = None
+
+    if options_tracker:
+        sp_positions  = options_tracker.get_sell_put_positions()
+        cs_positions  = options_tracker.get_credit_spread_positions()
+        dte_positions = options_tracker.get_zero_dte_positions()
+        sp_stats      = options_tracker.get_sell_put_stats()
+        cs_stats      = options_tracker.get_credit_spread_stats()
+        dte_stats     = options_tracker.get_zero_dte_stats()
+        winning_sp    = options_tracker.get_winning_sell_put()
+        winning_cs    = options_tracker.get_winning_credit_spread()
+        winning_dte   = options_tracker.get_winning_zero_dte()
+
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "bot_status": {
+            "is_running":   bot_is_running,
+            "mode":         settings.mode,
+            "equity":       risk_manager.metrics.total_equity,
+            "cash":         risk_manager.metrics.cash,
+            "daily_pnl":    risk_manager.metrics.daily_pnl,
+            "positions":    risk_manager.metrics.position_count,
+            "trades_today": risk_manager.daily_trades,
+        },
+        "positions":               open_trades,
+        "pnl":                     pnl_tracker.get_stats(),
+        "winning_ticker":           winning_ticker,
+        "sell_put_positions":       sp_positions,
+        "credit_spread_positions":  cs_positions,
+        "zero_dte_positions":       dte_positions,
+        "sell_put_stats":           sp_stats,
+        "credit_spread_stats":      cs_stats,
+        "zero_dte_stats":           dte_stats,
+        "winning_sell_put":         winning_sp,
+        "winning_credit_spread":    winning_cs,
+        "winning_zero_dte":         winning_dte,
+    }
 
 
 def set_dependencies(pnl: PnLTracker, risk: RiskManager, opts: Optional[OptionsTracker] = None):

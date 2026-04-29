@@ -37,3 +37,25 @@ enum Theme {
     static let textPrimary = Color(hex: "F9FAFB")
     static let textMuted   = Color(hex: "6B7280")
 }
+
+// MARK: - Glass card modifier
+
+struct GlassCard: ViewModifier {
+    var stroke: Color
+
+    func body(content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(stroke, lineWidth: 0.6)
+            )
+    }
+}
+
+extension View {
+    func glassCard(stroke: Color = Color.white.opacity(0.10)) -> some View {
+        modifier(GlassCard(stroke: stroke))
+    }
+}

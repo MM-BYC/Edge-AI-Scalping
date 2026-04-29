@@ -7,9 +7,9 @@ private enum TickerTarget: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var accentColor: Color {
         switch self {
-        case .equity:       return .blue
-        case .sellPut:      return .orange
-        case .creditSpread: return .purple
+        case .equity:       return Theme.cyan
+        case .sellPut:      return Theme.caution
+        case .creditSpread: return Theme.purple
         }
     }
 }
@@ -21,95 +21,87 @@ struct TickersView: View {
     @State private var sellPutTickers:      [String] = stored("sellPutTickers",       default: ["TSLY","NVDY","AMZY"])
     @State private var creditSpreadTickers: [String] = stored("creditSpreadTickers",  default: ["SPY","QQQ"])
 
-    @State private var newTicker   = ""
-    @State private var addTarget:  TickerTarget = .equity
+    @State private var newTicker     = ""
+    @State private var addTarget:    TickerTarget = .equity
     @State private var appliedBanner = false
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
+            ZStack {
+                Theme.background.ignoresSafeArea()
 
-                // ── Ticker lists ──────────────────────────────────────
-                List {
-                    tickerSection(
-                        title: "EQUITY",
-                        color: TickerTarget.equity.accentColor,
-                        tickers: $equityTickers,
-                        key: "equityTickers"
-                    )
-                    tickerSection(
-                        title: "SELL PUT",
-                        color: TickerTarget.sellPut.accentColor,
-                        tickers: $sellPutTickers,
-                        key: "sellPutTickers"
-                    )
-                    tickerSection(
-                        title: "CREDIT SPREAD",
-                        color: TickerTarget.creditSpread.accentColor,
-                        tickers: $creditSpreadTickers,
-                        key: "creditSpreadTickers"
-                    )
-                }
-                .listStyle(.insetGrouped)
+                VStack(spacing: 0) {
 
-                // ── Add row ───────────────────────────────────────────
-                VStack(spacing: 8) {
-                    Picker("Add to", selection: $addTarget) {
-                        ForEach(TickerTarget.allCases) { t in
-                            Text(t.rawValue).tag(t)
+                    // ── Ticker lists ──────────────────────────────────────
+                    List {
+                        tickerSection(title: "EQUITY",        color: TickerTarget.equity.accentColor,
+                                      tickers: $equityTickers,       key: "equityTickers")
+                        tickerSection(title: "SELL PUT",      color: TickerTarget.sellPut.accentColor,
+                                      tickers: $sellPutTickers,      key: "sellPutTickers")
+                        tickerSection(title: "CREDIT SPREAD", color: TickerTarget.creditSpread.accentColor,
+                                      tickers: $creditSpreadTickers, key: "creditSpreadTickers")
+                    }
+                    .listStyle(.insetGrouped)
+                    .scrollContentBackground(.hidden)
+                    .refreshable { await botService.refresh() }
+
+                    // ── Add row ───────────────────────────────────────────
+                    VStack(spacing: 8) {
+                        Picker("Add to", selection: $addTarget) {
+                            ForEach(TickerTarget.allCases) { t in
+                                Text(t.rawValue).tag(t)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        HStack(spacing: 10) {
+                            TextField("Symbol (e.g. MSFT)", text: $newTicker)
+                                .textFieldStyle(.roundedBorder)
+                                .textInputAutocapitalization(.characters)
+                                .autocorrectionDisabled()
+                                .submitLabel(.done)
+                                .onSubmit(addTicker)
+
+                            Button(action: addTicker) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(
+                                        newTicker.trimmingCharacters(in: .whitespaces).isEmpty
+                                            ? Theme.textMuted : addTarget.accentColor
+                                    )
+                            }
+                            .disabled(newTicker.trimmingCharacters(in: .whitespaces).isEmpty)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
 
-                    HStack(spacing: 10) {
-                        TextField("Symbol (e.g. MSFT)", text: $newTicker)
-                            .textFieldStyle(.roundedBorder)
-                            .textInputAutocapitalization(.characters)
-                            .autocorrectionDisabled()
-                            .submitLabel(.done)
-                            .onSubmit(addTicker)
+                    // ── Confirmation banner ───────────────────────────────
+                    if appliedBanner {
+                        Text("Tickers sent to bot")
+                            .font(.caption).fontWeight(.semibold).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding(.vertical, 6)
+                            .background(Theme.profit)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
 
-                        Button(action: addTicker) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(
-                                    newTicker.trimmingCharacters(in: .whitespaces).isEmpty
-                                        ? .gray : addTarget.accentColor
-                                )
+                    // ── Apply button ──────────────────────────────────────
+                    Button(action: applyAll) {
+                        HStack {
+                            Image(systemName: "paperplane.fill")
+                            Text("Apply All to Bot")
                         }
-                        .disabled(newTicker.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .frame(maxWidth: .infinity).padding()
+                        .background(botService.isConnected ? Theme.cyan : Theme.textMuted)
+                        .foregroundColor(botService.isConnected ? .black : .white)
+                        .cornerRadius(10)
                     }
+                    .disabled(!botService.isConnected)
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+                    .background(.ultraThinMaterial)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 10)
-                .background(Color(.systemBackground))
-
-                // ── Confirmation banner ───────────────────────────────
-                if appliedBanner {
-                    Text("Tickers sent to bot")
-                        .font(.caption).fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(Color.green)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-
-                // ── Apply button ──────────────────────────────────────
-                Button(action: applyAll) {
-                    HStack {
-                        Image(systemName: "paperplane.fill")
-                        Text("Apply All to Bot")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(botService.isConnected ? Color.blue : Color.gray)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                .disabled(!botService.isConnected)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
             }
             .navigationTitle("Tickers")
             .toolbar { EditButton() }
@@ -120,23 +112,18 @@ struct TickersView: View {
 
     @ViewBuilder
     private func tickerSection(
-        title: String,
-        color: Color,
-        tickers: Binding<[String]>,
-        key: String
+        title: String, color: Color,
+        tickers: Binding<[String]>, key: String
     ) -> some View {
         Section {
             ForEach(tickers.wrappedValue, id: \.self) { ticker in
                 HStack {
                     Text(ticker)
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.semibold)
+                        .font(.system(.body, design: .monospaced)).fontWeight(.semibold)
                     Spacer()
                     Text(title)
-                        .font(.caption2)
-                        .foregroundColor(color)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
+                        .font(.caption2).foregroundColor(color)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
                         .overlay(RoundedRectangle(cornerRadius: 4).stroke(color, lineWidth: 1))
                 }
             }
@@ -145,10 +132,7 @@ struct TickersView: View {
                 UserDefaults.standard.set(tickers.wrappedValue, forKey: key)
             }
         } header: {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(color)
-                .fontWeight(.bold)
+            Text(title).font(.caption).foregroundColor(color).fontWeight(.bold)
         }
     }
 
@@ -196,5 +180,6 @@ private func stored(_ key: String, default def: [String]) -> [String] {
 struct TickersView_Previews: PreviewProvider {
     static var previews: some View {
         TickersView().environmentObject(BotService())
+            .preferredColorScheme(.dark)
     }
 }
