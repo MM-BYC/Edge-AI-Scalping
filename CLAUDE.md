@@ -118,45 +118,55 @@ requirements.txt              # Python dependencies
 
 ## Setup & Run
 
-### 1. Install Dependencies
+### 1. Install `uv` (Fast Python Manager)
+
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# macOS
+brew install uv
+
+# Or via pip
+pip install uv
 ```
 
-### 2. Configure
+### 2. Install Dependencies
+
+```bash
+uv sync  # Creates venv and installs dependencies
+```
+
+### 3. Configure
+
 ```bash
 cp .env.example .env
 # Edit .env with Alpaca credentials (get from app.alpaca.markets)
 ```
 
-### 3. Train Model (Optional)
+### 4. Train Model (Optional)
+
 ```bash
-python engine/models/train.py
+uv run -- python engine/models/train.py
 # Generates engine/models/scalp_v1.onnx
 ```
 
-### 4. Run Bot
+### 5. Run Bot
+
 ```bash
 # Paper trading (recommended first)
-MODE=paper python engine/main.py
-
-# Or live (⚠️ risk capital)
-MODE=live python engine/main.py
+uv run -- python engine/main.py
 ```
 
-API available at `http://localhost:8765` for iOS app.
+Set `MODE=paper` in `.env`. API available at `http://localhost:8765` for iOS app.
 
-### 5. Run Tests
+### 6. Run Tests
+
 ```bash
-pytest tests/ -v
+uv run -- pytest tests/ -v
 ```
 
-### 6. Backtest
+### 7. Backtest
+
 ```bash
-# TBD: Add backtest CLI script
-python -c "from engine.backtest.engine import BacktestEngine; ..."
+uv run -- python -c "from engine.backtest.engine import BacktestEngine; ..."
 ```
 
 ## Configuration

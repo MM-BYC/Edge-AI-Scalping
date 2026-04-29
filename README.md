@@ -4,33 +4,47 @@ Low-latency algorithmic trading bot for scalping on Alpaca. Runs on Mac mini wit
 
 ## Quick Start
 
-### 1. Setup
+### 1. Install `uv` (Fast Python Package Manager)
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# macOS
+brew install uv
+
+# Or via pip
+pip install uv
+
+# Verify
+uv --version
+```
+
+### 2. Setup
+
+```bash
+# Install dependencies (uv handles venv automatically)
+uv sync
 
 # Configure
 cp .env.example .env
 # Edit .env with your Alpaca credentials
 ```
 
-### 2. Train ML Model (First Time Only)
+### 3. Train ML Model (First Time Only)
+
 ```bash
-python engine/models/train.py
-# Generates engine/models/scalp_v1.onnx
+uv run -- python engine/models/train.py
 ```
 
-### 3. Run
+Generates `engine/models/scalp_v1.onnx`.
+
+### 4. Run Bot
+
 ```bash
 # Paper trading (recommended)
-MODE=paper python engine/main.py
-
-# Or live
-MODE=live python engine/main.py
+uv run -- python engine/main.py
 ```
 
-Bot starts at `http://localhost:8765` for iOS app.
+Then set `MODE=paper` in `.env`. For live trading, set `MODE=live`.
+
+Bot API available at `http://localhost:8765` for iOS app.
 
 ## Features
 
