@@ -29,17 +29,31 @@ struct ControlView: View {
                         }
                     }
 
-                    Button(action: {
-                        botService.connect(to: serverURL)
-                    }) {
-                        Text("Connect")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(botService.isConnected ? Color.gray : Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            botService.connect(to: serverURL)
+                        }) {
+                            Text("Connect")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(botService.isConnected ? Color.gray : Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                        }
+                        .disabled(botService.isConnected)
+
+                        Button(action: {
+                            botService.disconnect()
+                        }) {
+                            Text("Disconnect")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(botService.isConnected ? Color.red : Color.gray)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                        }
+                        .disabled(!botService.isConnected)
                     }
-                    .disabled(botService.isConnected)
                 }
                 .padding()
                 .background(Color(.systemGray6))
