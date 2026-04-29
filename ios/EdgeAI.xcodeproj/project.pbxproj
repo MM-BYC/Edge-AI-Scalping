@@ -13,6 +13,8 @@
 		E71D8FDA8CB735D929841B27 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B5BB4B899832E4D1CF14BC /* App.swift */; };
 		F6B640A5A6764E62E0DAD1FC /* PositionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A8E194EEC29314163AC91B /* PositionsView.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* TickersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */; };
+		C1D2E3F4A5B6C7D8E9F0A1B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E3F4A5B6C7D8E9F0A1B2C3 /* Theme.swift */; };
+		E3F4A5B6C7D8E9F0A1B2C3D4 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C7D8E9F0A1B2C3D4E5 /* SplashView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,7 +24,9 @@
 		77A8E194EEC29314163AC91B /* PositionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionsView.swift; sourceTree = "<group>"; };
 		83B5BB4B899832E4D1CF14BC /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TickersView.swift; sourceTree = "<group>"; };
+		D2E3F4A5B6C7D8E9F0A1B2C3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D4BD60B13F417C04B059B98D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		F4A5B6C7D8E9F0A1B2C3D4E5 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		F4838BC656B6F0E6FE9C751B /* EdgeAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EdgeAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -32,6 +36,7 @@
 			children = (
 				2C18FCA62FA1E04A003DFC89 /* Info.plist */,
 				83B5BB4B899832E4D1CF14BC /* App.swift */,
+				D2E3F4A5B6C7D8E9F0A1B2C3 /* Theme.swift */,
 				8F3EC08A80BCD48A4C2231B1 /* Services */,
 				1683E438F57ABFDC2705E274 /* Views */,
 			);
@@ -44,6 +49,7 @@
 				177DF06B909DDB76904FF4B0 /* ControlView.swift */,
 				D4BD60B13F417C04B059B98D /* DashboardView.swift */,
 				77A8E194EEC29314163AC91B /* PositionsView.swift */,
+				F4A5B6C7D8E9F0A1B2C3D4E5 /* SplashView.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* TickersView.swift */,
 			);
 			path = Views;
@@ -137,6 +143,8 @@
 				A0A16A1F0BE4F9A52C2A3C80 /* DashboardView.swift in Sources */,
 				F6B640A5A6764E62E0DAD1FC /* PositionsView.swift in Sources */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* TickersView.swift in Sources */,
+				C1D2E3F4A5B6C7D8E9F0A1B2 /* Theme.swift in Sources */,
+				E3F4A5B6C7D8E9F0A1B2C3D4 /* SplashView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
