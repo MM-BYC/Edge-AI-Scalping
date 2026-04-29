@@ -29,10 +29,12 @@ class Bar:
 class AlpacaClient:
     def __init__(self):
         self.config = settings
+        # alpaca-py v0.26+ uses paper/live mode selection instead of base_url
+        paper = settings.is_paper
         self.client = TradingClient(
             api_key=settings.alpaca_api_key,
             secret_key=settings.alpaca_secret_key,
-            base_url=settings.alpaca_base_url
+            paper=paper
         )
         self.http_client = httpx.AsyncClient(
             base_url=settings.alpaca_base_url,
