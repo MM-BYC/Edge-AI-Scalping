@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct EdgeAIApp: App {
@@ -13,20 +14,23 @@ struct EdgeAIApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(botService)
-                .preferredColorScheme(.dark)
         }
     }
 
     // MARK: - UIKit appearance
 
     private func applyTabBarStyle() {
-        let active   = UIColor(red: 0,    green: 0.847, blue: 1,    alpha: 1)   // #00D8FF cyan
-        let inactive = UIColor(red: 0.42, green: 0.45,  blue: 0.50, alpha: 1)
+        let active   = UIColor.systemBlue
+        let inactive = UIColor.secondaryLabel
 
         let a = UITabBarAppearance()
         a.configureWithTransparentBackground()
-        a.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
-        a.backgroundColor  = UIColor(red: 0.031, green: 0.047, blue: 0.094, alpha: 0.75)
+        a.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        a.backgroundColor  = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.031, green: 0.047, blue: 0.094, alpha: 0.75)
+                : UIColor.systemBackground.withAlphaComponent(0.75)
+        }
         a.stackedLayoutAppearance.selected.iconColor           = active
         a.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: active]
         a.stackedLayoutAppearance.normal.iconColor             = inactive
@@ -39,10 +43,14 @@ struct EdgeAIApp: App {
     private func applyNavBarStyle() {
         let a = UINavigationBarAppearance()
         a.configureWithTransparentBackground()
-        a.backgroundEffect     = UIBlurEffect(style: .systemUltraThinMaterialDark)
-        a.backgroundColor      = UIColor(red: 0.031, green: 0.047, blue: 0.094, alpha: 0.75)
-        a.titleTextAttributes      = [.foregroundColor: UIColor.white]
-        a.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        a.backgroundEffect     = UIBlurEffect(style: .systemUltraThinMaterial)
+        a.backgroundColor      = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.031, green: 0.047, blue: 0.094, alpha: 0.75)
+                : UIColor.systemBackground.withAlphaComponent(0.75)
+        }
+        a.titleTextAttributes      = [.foregroundColor: UIColor.label]
+        a.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
 
         UINavigationBar.appearance().standardAppearance   = a
         UINavigationBar.appearance().scrollEdgeAppearance = a

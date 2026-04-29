@@ -139,6 +139,5 @@ struct ControlView: View {
 struct ControlView_Previews: PreviewProvider {
     static var previews: some View {
         ControlView().environmentObject(BotService())
-            .preferredColorScheme(.dark)
     }
 }

@@ -183,6 +183,5 @@ struct PositionsView: View {
 struct PositionsView_Previews: PreviewProvider {
     static var previews: some View {
         PositionsView().environmentObject(BotService())
-            .preferredColorScheme(.dark)
     }
 }

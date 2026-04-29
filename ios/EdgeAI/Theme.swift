@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Hex color convenience
 
@@ -18,12 +19,30 @@ extension Color {
 
 enum Theme {
     // Backgrounds
-    static let background  = Color(hex: "080C18")   // deep navy black
-    static let surface     = Color(hex: "111827")   // dark card
-    static let surfaceAlt  = Color(hex: "1A2235")   // slightly lighter card
+    static let background = Color(
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.031, green: 0.047, blue: 0.094, alpha: 1)
+                : UIColor.systemGroupedBackground
+        }
+    )
+    static let surface = Color(
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.067, green: 0.094, blue: 0.153, alpha: 1)
+                : UIColor.secondarySystemGroupedBackground
+        }
+    )
+    static let surfaceAlt = Color(
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.102, green: 0.133, blue: 0.208, alpha: 1)
+                : UIColor.tertiarySystemGroupedBackground
+        }
+    )
 
     // Brand accents
-    static let cyan        = Color(hex: "00D8FF")   // electric cyan  – live data, signals
+    static let cyan        = Color(hex: "007AFF")   // system blue    – live data, signals
     static let gold        = Color(hex: "F59E0B")   // amber gold     – brand, warnings
     static let purple      = Color(hex: "8B5CF6")   // violet         – credit spreads
     static let teal        = Color(hex: "06B6D4")   // teal           – 0DTE
@@ -34,8 +53,17 @@ enum Theme {
     static let caution     = Color(hex: "F97316")   // orange
 
     // Text
-    static let textPrimary = Color(hex: "F9FAFB")
-    static let textMuted   = Color(hex: "6B7280")
+    static let textPrimary = Color.primary
+    static let textMuted   = Color.secondary
+
+    // Adaptive effects
+    static let separator = Color(
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.10)
+                : UIColor.black.withAlphaComponent(0.10)
+        }
+    )
 }
 
 // MARK: - Glass card modifier
@@ -55,7 +83,7 @@ struct GlassCard: ViewModifier {
 }
 
 extension View {
-    func glassCard(stroke: Color = Color.white.opacity(0.10)) -> some View {
+    func glassCard(stroke: Color = Theme.separator) -> some View {
         modifier(GlassCard(stroke: stroke))
     }
 }

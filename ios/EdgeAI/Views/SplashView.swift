@@ -11,7 +11,7 @@ struct SplashView: View {
         ZStack {
             // ── Background ─────────────────────────────────────────────
             LinearGradient(
-                colors: [Color(hex: "080C18"), Color(hex: "0B1628"), Color(hex: "080C18")],
+                colors: [Theme.background, Theme.surfaceAlt, Theme.background],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -118,7 +118,7 @@ private struct GridLines: View {
                 var p = Path()
                 p.move(to: CGPoint(x: x, y: 0))
                 p.addLine(to: CGPoint(x: x, y: size.height))
-                ctx.stroke(p, with: .color(.white.opacity(0.032)), lineWidth: 0.5)
+                ctx.stroke(p, with: .color(Theme.separator.opacity(0.6)), lineWidth: 0.5)
                 x += step
             }
             var y: CGFloat = 0
@@ -126,7 +126,7 @@ private struct GridLines: View {
                 var p = Path()
                 p.move(to: CGPoint(x: 0, y: y))
                 p.addLine(to: CGPoint(x: size.width, y: y))
-                ctx.stroke(p, with: .color(.white.opacity(0.032)), lineWidth: 0.5)
+                ctx.stroke(p, with: .color(Theme.separator.opacity(0.6)), lineWidth: 0.5)
                 y += step
             }
         }
@@ -188,6 +188,5 @@ private struct CandleBackground: View {
 struct SplashView_Previews: PreviewProvider {
     static var previews: some View {
         SplashView()
-            .preferredColorScheme(.dark)
     }
 }

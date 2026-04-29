@@ -38,13 +38,13 @@ uv --version
 ```bash
 cd /path/to/Edge_AI_scalping
 uv sync                    # Install all dependencies
-cp .env.example .env       # Create config file
+cp .env.example engine/.env # Create config file
 ```
 
 ### Configure Alpaca Credentials
 
 ```bash
-# Edit .env
+# Edit engine/.env
 ALPACA_API_KEY=your_key_here
 ALPACA_SECRET_KEY=your_secret_here
 MODE=paper                 # Start with paper trading
@@ -64,10 +64,14 @@ uv run -- python engine/models/train.py
 
 ```bash
 # Terminal 1: Start bot on Mac mini
-uv run -- python engine/main.py
+uv run -- python main.py
 ```
 
-**Bot API:** Listens on `http://0.0.0.0:8765` (WebSocket for iOS app)
+**Bot API:** Listens on `http://0.0.0.0:8765`.
+
+- WebSocket for iOS: `ws://<mac-mini-ip>:8765/ws/live`
+- Pull snapshot for diagnostics: `http://<mac-mini-ip>:8765/snapshot`
+- Live market prices are included in both `/snapshot` and `/ws/live` as `market_data`.
 
 **iOS App (Optional):**
 
@@ -90,7 +94,7 @@ uv run -- python engine/main.py
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                 ALPACA BROKER (Cloud)                    │   │
-│  │  ├─ Real-time 1-second bars (WebSocket stream)          │   │
+│  │  ├─ Latest stock bars (Alpaca Data API polling)         │   │
 │  │  ├─ Paper or Live trading accounts                      │   │
 │  │  └─ Order execution & fills                             │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -258,11 +262,12 @@ uv run -- python engine/main.py
 
 ## Complete Data Flow
 
-### Tick-by-Tick Execution (Every 1 Second)
+### Live Execution Loop
 
 ```
-1. MARKET DATA ARRIVES (Alpaca WebSocket)
-   └─ New 1-second bar: SPY $420.50
+1. MARKET DATA ARRIVES (Alpaca latest-bar polling)
+   └─ Bot polls Alpaca Data API every 5 seconds by default
+   └─ New latest bar: SPY $420.50
       • Open: $420.45
       • High: $420.52
       • Low: $420.40
@@ -332,8 +337,12 @@ uv run -- python engine/main.py
    └─ Daily P&L: +$250.50
 
 10. iOS DASHBOARD PUSH (WebSocket, every 500ms)
-    └─ {"equity": $100,250, "daily_pnl": $250.50, "positions": 3, ...}
-       └─ iPhone updates in real-time: "+$250.50" (green)
+    └─ {
+         "bot_status": {"equity": 100250, "daily_pnl": 250.50, "positions": 3},
+         "market_data": {"SPY": {"price": 420.50, "volume": 15000}},
+         "pnl": {"total_pnl": 325.70}
+       }
+       └─ iPhone updates live prices, account stats, positions, and P&L
 ```
 
 ---
@@ -367,10 +376,10 @@ uv run -- python --version  # Should show Python 3.11+
 
 ```bash
 # Copy template
-cp .env.example .env
+cp .env.example engine/.env
 
 # Edit with your credentials
-nano .env
+nano engine/.env
 ```
 
 Fill in:
@@ -385,7 +394,7 @@ SYMBOLS=SPY,QQQ,AAPL,TSLA,NVDA     # Symbols to trade
 1. Go to [app.alpaca.markets](https://app.alpaca.markets)
 2. Login with your account
 3. Dashboard → Settings → API Keys
-4. Copy API Key and Secret Key into `.env`
+4. Copy API Key and Secret Key into `engine/.env`
 
 ### Step 3: Train ML Model (First Time Only)
 
@@ -406,7 +415,7 @@ This creates the ML model used for signal generation. Takes ~30 seconds.
 
 ```bash
 # Terminal 1: Start the bot
-uv run -- python engine/main.py
+uv run -- python main.py
 
 # Expected output:
 # 2026-04-28 14:35:22,123 [INFO] Initializing Edge AI Scalping Bot
@@ -414,6 +423,7 @@ uv run -- python engine/main.py
 # 2026-04-28 14:35:22,126 [INFO] Symbols: ['SPY', 'QQQ', 'AAPL', 'TSLA', 'NVDA']
 # 2026-04-28 14:35:22,500 [INFO] Data feed connected
 # 2026-04-28 14:35:22,600 [INFO] API server started on 0.0.0.0:8765
+# 2026-04-28 14:35:22,750 [INFO] HTTP Request: GET https://data.alpaca.markets/v2/stocks/bars/latest?... "HTTP/1.1 200 OK"
 # 2026-04-28 14:35:23,000 [INFO] Bot ready, waiting for market data...
 ```
 
@@ -424,7 +434,10 @@ The bot is now running and listening on `http://localhost:8765`.
 While bot is running, watch for these log patterns:
 
 ```bash
-# New bar arrives (every ~1 second during market hours)
+# Latest bars are polled from Alpaca every 5 seconds by default
+2026-04-28 14:35:44,900 [INFO] HTTP Request: GET https://data.alpaca.markets/v2/stocks/bars/latest?... "HTTP/1.1 200 OK"
+
+# Signal generated after buffers have enough bars
 2026-04-28 14:35:45,123 [DEBUG] Signal: SPY -> 1 (confidence=0.72%) [rules=1, ml=1, price=$420.50]
 
 # Order submitted
@@ -458,15 +471,20 @@ curl http://localhost:8765/positions
 # Get risk status
 curl http://localhost:8765/risk
 # Response: {"can_trade": true, "daily_pnl": 250.5, "equity": 100250, ...}
+
+# Get the exact payload iOS receives over WebSocket
+curl http://localhost:8765/snapshot
+# Response includes: bot_status, market_data, positions, pnl, options stats
 ```
 
 ### Mac Operation Checklist
 
 - [ ] Market hours (9:30 AM - 4:00 PM ET weekdays)
 - [ ] Mac mini connected to network (wired Ethernet preferred)
-- [ ] Terminal running: `uv run -- python engine/main.py`
-- [ ] Logs showing new bars every ~1 second
+- [ ] Terminal running: `uv run -- python main.py`
+- [ ] Logs showing Alpaca latest-bar requests returning `HTTP/1.1 200 OK`
 - [ ] `curl http://localhost:8765/health` returns OK
+- [ ] `curl http://localhost:8765/snapshot` includes a non-empty `market_data` object
 - [ ] iOS app connected (see next section)
 - [ ] Monitor daily P&L in iOS dashboard (update every 500ms)
 
@@ -552,11 +570,12 @@ xcodebuild build -scheme EdgeAI
 
 - **Connection Status** (green dot = connected, red = disconnected)
 - **Bot Status Box**: Equity, Daily P&L, Cash, Positions, Trades Today
+- **Live Alpaca Data**: Latest prices for configured symbols from the bot's `market_data` payload
 - **P&L Stats Box**: Total P&L, Win Rate, Total Trades
 - **Winning Ticker Traded**: Symbol with the highest unrealized P&L among open positions (green), or `--` when no winning trade is active
 - **Connect / Disconnect**: Toggles based on connection state — blue "Connect to Bot" when disconnected, red "Disconnect from Bot" when connected
 
-**Real-Time Updates:** All values update every 500ms from Mac mini.
+**Real-Time Updates:** iOS receives a WebSocket payload every 500ms from the Mac mini. Alpaca market prices refresh when the bot's latest-bar poll receives a newer bar. Account stats can legitimately show `0.00` if the connected Alpaca paper account has no cash, equity, positions, or trades.
 
 ---
 
@@ -716,10 +735,10 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 async start()           # Initialize bot
 async stop()            # Shutdown gracefully
 async run()             # Main trading loop
-_on_new_bar(bar)       # Called every 1-second bar
+_on_new_bar(bar)       # Called when Alpaca returns a newer latest bar
 ```
 
-**Configuration**: Reads from `engine/config.py` (via `.env`)
+**Configuration**: Reads from `engine/config.py` (via `engine/.env`)
 
 ---
 
@@ -727,7 +746,7 @@ _on_new_bar(bar)       # Called every 1-second bar
 
 **Purpose**: Centralized settings management using Pydantic.
 
-**Loads from `.env`:**
+**Loads from `engine/.env`:**
 ```bash
 ALPACA_API_KEY              # Required
 ALPACA_SECRET_KEY           # Required
@@ -750,7 +769,7 @@ model_path_full # Full path to ONNX model
 
 ### 3. Broker Integration (`engine/broker/alpaca_client.py`)
 
-**Purpose**: Async wrapper around Alpaca REST API & WebSocket callbacks.
+**Purpose**: Async wrapper around Alpaca trading REST API and market-data polling.
 
 **Data Structures:**
 ```python
@@ -762,6 +781,7 @@ Bar(symbol, timestamp, open, high, low, close, volume)
 async connect()              # Establish broker connection
 async get_account()         # Fetch account info
 async get_positions()       # Get open positions
+async get_latest_bars()     # Fetch latest Alpaca Data API bars
 async submit_market_order() # Buy/sell at market
 async submit_limit_order()  # Conditional order
 async cancel_order()        # Cancel order by ID
@@ -779,11 +799,11 @@ subscribe_fills(symbol, callback)  # Register for fill updates
 
 #### `feed.py` — Market Data Stream Manager
 
-**Purpose**: Ingests real-time 1-second bars from Alpaca.
+**Purpose**: Polls Alpaca latest bars, stores new bars, and fans updates into the signal engine.
 
 **Key Methods:**
 ```python
-async start()                    # Connect to Alpaca data stream
+async start()                    # Start Alpaca latest-bar polling
 async stop()                     # Disconnect
 get_buffer(symbol)              # Get BarBuffer for symbol
 is_ready(min_bars=20)          # Check all symbols ready
@@ -971,8 +991,9 @@ profit_factor       # Total wins / total losses
 | GET | `/positions` | `[Position]` (open trades) |
 | GET | `/pnl` | `PnLStats` (win rate, avg hold, etc.) |
 | GET | `/risk` | Risk status (can trade, daily loss) |
+| GET | `/snapshot` | Full iOS payload: status, market_data, positions, P&L, options stats |
 | POST | `/control` | Accept start/stop/pause commands |
-| WS | `/ws/live` | WebSocket: 500ms equity updates |
+| WS | `/ws/live` | WebSocket: 500ms full live updates |
 
 **WebSocket Message Format:**
 ```json
@@ -982,9 +1003,21 @@ profit_factor       # Total wins / total losses
     "is_running": true,
     "mode": "paper",
     "equity": 102500.00,
+    "cash": 90000.00,
     "daily_pnl": 250.50,
-    "positions": 3
+    "positions": 3,
+    "trades_today": 5
   },
+  "market_data": {
+    "SPY": {
+      "symbol": "SPY",
+      "price": 420.50,
+      "timestamp": "2026-04-28T18:35:00+00:00",
+      "volume": 15000,
+      "bars": 1
+    }
+  },
+  "positions": [],
   "pnl": {
     "realized_pnl": 250.50,
     "unrealized_pnl": 75.20,
@@ -1047,6 +1080,12 @@ uv run -- python engine/models/train.py
 ## Configuration Guide
 
 ### `.env` Template
+
+The bot loads this file from `engine/.env`. Copy `.env.example` there before running:
+
+```bash
+cp .env.example engine/.env
+```
 
 ```bash
 # ─────────────────────────────────────────────────
@@ -1111,6 +1150,13 @@ API_PORT=8765
 
 # Log level
 API_LOG_LEVEL=info
+
+# ─────────────────────────────────────────────────
+# MARKET DATA
+# ─────────────────────────────────────────────────
+
+# Seconds between Alpaca latest-bar polls
+MARKET_DATA_POLL_SECONDS=5.0
 
 # ─────────────────────────────────────────────────
 # BACKTESTING
@@ -1285,11 +1331,11 @@ tail -f logs/engine.log | grep "P&L\|Signal\|Order"
 **Error: "Alpaca API key/secret not set"**
 ```bash
 # Fix: Check .env file
-cat .env | grep ALPACA
+cat engine/.env | grep ALPACA
 # Should see: ALPACA_API_KEY=PKxxx and ALPACA_SECRET_KEY=xxx
 
 # If missing, edit and save
-nano .env
+nano engine/.env
 ```
 
 **Error: "ONNX model not found"**
@@ -1311,7 +1357,7 @@ lsof -i :8765
 kill -9 <PID>
 
 # Or use different port
-API_PORT=9999  # Edit .env
+API_PORT=9999  # Edit engine/.env
 ```
 
 ---
@@ -1321,16 +1367,16 @@ API_PORT=9999  # Edit .env
 **Problem: Bot running but no trades**
 
 ```bash
-# Check 1: Wait for 20 bars (usually <1 minute)
+# Check 1: Wait for 20 fresh latest-bar polls
 # Bot logs: "Bot ready, waiting for market data..."
-# Wait 1-2 minutes during market hours
+# Default poll interval is 5 seconds, so this can take about 2 minutes
 
 # Check 2: Verify market hours (9:30 AM - 4:00 PM ET weekdays)
 date  # Is it trading hours?
 
-# Check 3: Check symbol is active
-curl https://data.alpaca.markets/v1beta3/latest/bars?symbols=SPY
-# Should show recent bars
+# Check 3: Check the bot is receiving market data
+curl http://localhost:8765/snapshot
+# market_data should include SPY/QQQ/etc. with recent price values
 
 # Check 4: Review signal logs
 tail -50 logs/engine.log | grep "Signal"
@@ -1389,7 +1435,7 @@ curl http://192.168.1.100:8765/health
 
 ```bash
 # Check 1: Paper vs Live mode
-grep "^MODE=" .env
+grep "^MODE=" engine/.env
 # Should be: MODE=paper (for testing)
 
 # Check 2: Market hours
@@ -1449,7 +1495,7 @@ Solutions:
 uv run -- python engine/models/train.py
 
 # Check 3: Parameters need tuning
-# Review .env risk parameters, try conservative setting:
+# Review engine/.env risk parameters, try conservative setting:
 DAILY_LOSS_CAP=-0.01    # Tighter
 PER_TRADE_STOP_LOSS=-0.002
 
@@ -1481,7 +1527,7 @@ top -n 1 | head -20
 # Check 4: Reconnect
 # Kill bot: Ctrl+C
 # Wait 5 seconds
-# Restart: uv run -- python engine/main.py
+# Restart: uv run -- python main.py
 ```
 
 ---
@@ -1512,7 +1558,7 @@ Solutions:
 Edge_AI_scalping/
 ├── engine/
 │   ├── main.py                  # Entry point, orchestrator
-│   ├── config.py                # Settings from .env
+│   ├── config.py                # Settings from engine/.env
 │   │
 │   ├── broker/
 │   │   ├── alpaca_client.py     # Alpaca API wrapper
@@ -1565,7 +1611,7 @@ Edge_AI_scalping/
 │   └── test_backtest.py
 │
 ├── .env.example               # Configuration template
-├── .env                       # Your credentials (don't commit!)
+├── engine/.env                # Your credentials (don't commit!)
 ├── .gitignore                # Git ignore rules
 ├── pyproject.toml            # uv/Poetry config
 ├── README.md                 # This file
@@ -1580,7 +1626,7 @@ Edge_AI_scalping/
 
 1. **Paper Trading**: Run with `MODE=paper` for 1–2 weeks
 2. **Monitor**: Check logs daily, review Win Rate
-3. **Tune**: Adjust parameters in `.env` based on performance
+3. **Tune**: Adjust parameters in `engine/.env` based on performance
 4. **Go Live**: Only switch to `MODE=live` after proven profitability
 5. **Document**: Keep notes on what parameters work best
 

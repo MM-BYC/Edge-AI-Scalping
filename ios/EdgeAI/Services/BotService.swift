@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     @Published var isConnected      = false
     @Published var botStatus:       BotStatus?
@@ -51,16 +52,20 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
 
     private func receiveMessages() {
         webSocket?.receive { [weak self] result in
-            switch result {
-            case .success(let message):
-                switch message {
-                case .string(let json): self?.handleMessage(json)
-                case .data(let data):   self?.handleMessage(String(data: data, encoding: .utf8) ?? "")
-                @unknown default: break
-                }
-                self?.receiveMessages()
-            case .failure(let error):
-                DispatchQueue.main.async {
+            Task { @MainActor in
+                switch result {
+                case .success(let message):
+                    switch message {
+                    case .string(let json):
+                        self?.handleMessage(json)
+                    case .data(let data):
+                        self?.handleMessage(String(data: data, encoding: .utf8) ?? "")
+                    @unknown default:
+                        break
+                    }
+                    self?.receiveMessages()
+
+                case .failure(let error):
                     self?.connectionStatus = "Error: \(error.localizedDescription)"
                     self?.isConnected = false
                 }
@@ -72,27 +77,29 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         guard let data = json.data(using: .utf8) else { return }
         do {
             let update = try JSONDecoder().decode(LiveUpdate.self, from: data)
-            DispatchQueue.main.async {
-                self.botStatus            = update.botStatus
-                self.marketData           = update.marketData
-                self.positions            = update.positions
-                self.pnlStats             = update.pnl
-                self.winningTicker        = update.winningTicker
-                self.sellPutPositions      = update.sellPutPositions
-                self.creditSpreadPositions = update.creditSpreadPositions
-                self.zeroDTEPositions      = update.zeroDTEPositions
-                self.sellPutStats          = update.sellPutStats
-                self.creditSpreadStats     = update.creditSpreadStats
-                self.zeroDTEStats          = update.zeroDTEStats
-                self.winningSellPut        = update.winningSellPut
-                self.winningCreditSpread   = update.winningCreditSpread
-                self.winningZeroDTE        = update.winningZeroDTE
-                self.connectionStatus     = "Connected"
-                self.isConnected          = true
-            }
+            apply(update)
         } catch {
             print("Decode error: \(error)")
         }
+    }
+
+    private func apply(_ update: LiveUpdate) {
+        botStatus             = update.botStatus
+        marketData            = update.marketData
+        positions             = update.positions
+        pnlStats              = update.pnl
+        winningTicker         = update.winningTicker
+        sellPutPositions      = update.sellPutPositions
+        creditSpreadPositions = update.creditSpreadPositions
+        zeroDTEPositions      = update.zeroDTEPositions
+        sellPutStats          = update.sellPutStats
+        creditSpreadStats     = update.creditSpreadStats
+        zeroDTEStats          = update.zeroDTEStats
+        winningSellPut        = update.winningSellPut
+        winningCreditSpread   = update.winningCreditSpread
+        winningZeroDTE        = update.winningZeroDTE
+        connectionStatus      = "Connected"
+        isConnected           = true
     }
 
     // MARK: - Commands
@@ -142,13 +149,20 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     }
 
     // MARK: - URLSessionWebSocketDelegate
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
-                    didOpenWithProtocol protocol: String?) {
-        DispatchQueue.main.async { self.isConnected = true; self.connectionStatus = "Connected" }
+    nonisolated func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                                didOpenWithProtocol protocol: String?) {
+        Task { @MainActor in
+            self.isConnected = true
+            self.connectionStatus = "Connected"
+        }
     }
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
-                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        DispatchQueue.main.async { self.isConnected = false; self.connectionStatus = "Disconnected" }
+
+    nonisolated func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                                didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        Task { @MainActor in
+            self.isConnected = false
+            self.connectionStatus = "Disconnected"
+        }
     }
 }
 
