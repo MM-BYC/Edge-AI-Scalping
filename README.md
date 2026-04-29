@@ -65,15 +65,16 @@ uv run -- python engine/models/train.py
 ```bash
 # Terminal 1: Start bot on Mac mini
 uv run -- python engine/main.py
-
-# Terminal 2: Build & run iOS app
-cd ios/EdgeAI
-xcodebuild -scheme EdgeAI -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16' build
-# Or open in Xcode:
-open EdgeAI.xcodeproj
 ```
 
-Bot API listens on `http://localhost:8765` (WebSocket for iOS).
+**Bot API:** Listens on `http://0.0.0.0:8765` (WebSocket for iOS app)
+
+**iOS App (Optional):**
+
+- Source files in `ios/EdgeAI/` (Swift + SwiftUI)
+- Create new Xcode project: `File → New → Project → iOS → App`
+- Add files from `ios/EdgeAI/` to your project
+- Configure target to connect to bot at `<mac-mini-ip>:8765`
 
 ---
 
