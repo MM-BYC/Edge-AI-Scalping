@@ -8,7 +8,7 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     @Published var connectionStatus = "Disconnected"
 
     private var webSocket: URLSessionWebSocketTask?
-    private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.100:8765"
+    private var serverURL = UserDefaults.standard.string(forKey: "botServerURL") ?? "ws://192.168.1.100:8765/ws/live"
     private var receiveTask: URLSessionWebSocketTask?
 
     override init() {
@@ -19,12 +19,16 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         serverURL = url
         UserDefaults.standard.set(url, forKey: "botServerURL")
 
-        let wsURL = URL(string: url)!
+        guard let wsURL = URL(string: url) else {
+            connectionStatus = "Invalid URL"
+            isConnected = false
+            return
+        }
+
         let session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
         webSocket = session.webSocketTask(with: wsURL)
         webSocket?.resume()
 
-        isConnected = true
         connectionStatus = "Connecting..."
         receiveMessages()
     }
@@ -51,8 +55,11 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
                 }
             case .failure(let error):
                 print("WebSocket error: \(error)")
-                self?.connectionStatus = "Disconnected"
-                self?.isConnected = false
+                DispatchQueue.main.async {
+                    self?.connectionStatus = "Error: \(error.localizedDescription)"
+                    self?.isConnected = false
+                }
+                return
             }
         }
     }
@@ -68,6 +75,7 @@ class BotService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
                 self.positions = update.positions
                 self.pnlStats = update.pnl
                 self.connectionStatus = "Connected"
+                self.isConnected = true
             }
         } catch {
             print("Failed to decode message: \(error)")

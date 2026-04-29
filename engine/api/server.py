@@ -145,37 +145,30 @@ def create_app() -> FastAPI:
     async def websocket_live(websocket: WebSocket):
         """WebSocket endpoint for live updates"""
         await manager.connect(websocket)
-        logger.info("WebSocket client connected, starting live updates")
+        logger.info("WebSocket client connected")
 
         try:
             while True:
                 if risk_manager and pnl_tracker:
-                    try:
-                        update = {
-                            "timestamp": datetime.now().isoformat(),
-                            "bot_status": {
-                                "is_running": bot_is_running,
-                                "mode": settings.mode,
-                                "equity": risk_manager.metrics.total_equity,
-                                "cash": risk_manager.metrics.cash,
-                                "daily_pnl": risk_manager.metrics.daily_pnl,
-                                "positions": risk_manager.metrics.position_count,
-                                "trades_today": risk_manager.daily_trades
-                            },
-                            "positions": pnl_tracker.get_open_trades(),
-                            "pnl": pnl_tracker.get_stats()
-                        }
-                        await websocket.send_json(update)
-                    except Exception as e:
-                        logger.error(f"Error sending WebSocket update: {e}", exc_info=True)
-                        break
+                    update = {
+                        "timestamp": datetime.now().isoformat(),
+                        "bot_status": {
+                            "is_running": bot_is_running,
+                            "mode": settings.mode,
+                            "equity": risk_manager.metrics.total_equity,
+                            "cash": risk_manager.metrics.cash,
+                            "daily_pnl": risk_manager.metrics.daily_pnl,
+                            "positions": risk_manager.metrics.position_count,
+                            "trades_today": risk_manager.daily_trades
+                        },
+                        "positions": pnl_tracker.get_open_trades(),
+                        "pnl": pnl_tracker.get_stats()
+                    }
+                    await websocket.send_json(update)
                 await asyncio.sleep(0.5)
 
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected")
-            manager.disconnect(websocket)
-        except Exception as e:
-            logger.error(f"WebSocket error: {e}", exc_info=True)
             manager.disconnect(websocket)
 
     @app.get("/backtest/latest")
