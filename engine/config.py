@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     retrain_lookback_days: int = 90       # days of history to fetch per run
     retrain_min_improvement: float = 0.01 # min win-rate delta to deploy a new model
 
+    # 0DTE SPY credit spread mode (opt-in)
+    zero_dte_enabled: bool = False
+
     # Logging
     log_level: str = "INFO"
     log_file: str = "logs/engine.log"

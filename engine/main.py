@@ -12,6 +12,7 @@ import time
 import uvloop
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 # High-performance event loop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -23,6 +24,8 @@ from engine.signals.ensemble import SignalEnsemble
 from engine.execution.risk import RiskManager
 from engine.execution.router import OrderRouter
 from engine.execution.pnl_tracker import PnLTracker
+from engine.execution.options_tracker import OptionsTracker
+from engine.execution.options_router import ZeroDTERouter
 from engine.api.server import create_app, set_dependencies
 from engine.agents.orchestrator import RetrainingOrchestrator
 from engine.agents.live_feedback_agent import LiveFeedbackAgent
@@ -53,9 +56,18 @@ class TradingBot:
         self.alpaca = AlpacaClient()
         self.feed = DataFeed(self.alpaca)
         self.ensemble = SignalEnsemble(str(settings.model_path_full))
-        self.risk = RiskManager()
-        self.router = OrderRouter(self.alpaca, self.risk)
-        self.pnl = PnLTracker()
+        self.risk    = RiskManager()
+        self.router  = OrderRouter(self.alpaca, self.risk)
+        self.pnl     = PnLTracker()
+        self.options = OptionsTracker()
+
+        # 0DTE SPY credit spread router (opt-in via ZERO_DTE_ENABLED=true in .env)
+        self._zero_dte: Optional[ZeroDTERouter] = (
+            ZeroDTERouter(self.alpaca, self.options, self.risk)
+            if settings.zero_dte_enabled else None
+        )
+        if self._zero_dte:
+            logger.info("0DTE SPY credit spread mode enabled")
 
         # State
         self.is_running = False
@@ -89,7 +101,7 @@ class TradingBot:
             self._start_api_server()
 
             # Set dependencies for API
-            set_dependencies(self.pnl, self.risk)
+            set_dependencies(self.pnl, self.risk, self.options)
 
             self.is_running = True
             logger.info("Bot ready, waiting for market data...")
@@ -117,6 +129,11 @@ class TradingBot:
             # Stop background agents
             self._scheduler.stop()
             self._live_feedback.stop()
+
+            # Close 0DTE positions and clean up
+            if self._zero_dte:
+                await self._zero_dte.close_all()
+                await self._zero_dte.aclose()
 
             # Disconnect
             await self.feed.stop()
@@ -176,9 +193,10 @@ class TradingBot:
         # Generate signal
         signal, analysis = self.ensemble.generate_signal(opens, highs, lows, closes, volumes)
 
+        confidence = analysis.get("ensemble_confidence", 0.5)
+
         # Log signal
         if signal != 0:
-            confidence = analysis.get("ensemble_confidence", 0)
             logger.info(
                 f"Signal: {symbol} -> {signal:+d} (confidence={confidence:.2%}) "
                 f"[rules={analysis.get('rule_signal')}, ml={analysis.get('ml_signal')}, "
@@ -188,10 +206,16 @@ class TradingBot:
         # Update P&L
         self.pnl.update_market_prices(symbol, bar.close)
 
-        # Route signal
+        # Route equity signal
         asyncio.create_task(
-            self.router.route_signal(symbol, signal, bar.close, analysis.get("ensemble_confidence", 0.5))
+            self.router.route_signal(symbol, signal, bar.close, confidence)
         )
+
+        # Route 0DTE signal for SPY when enabled
+        if self._zero_dte and symbol == "SPY":
+            asyncio.create_task(
+                self._zero_dte.route_signal(signal, bar.close, confidence)
+            )
 
     async def run(self):
         """Main event loop"""

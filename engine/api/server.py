@@ -4,23 +4,20 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
-from fastapi.responses import JSONResponse
 import uvloop
 
 from engine.config import settings
 from engine.api.schemas import BotStatus, PositionSnapshot, LiveUpdate, ControlCommand
 from engine.execution.pnl_tracker import PnLTracker
 from engine.execution.risk import RiskManager
+from engine.execution.options_tracker import OptionsTracker
 
 logger = logging.getLogger(__name__)
 
-# Set high-performance async loop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 class ConnectionManager:
-    """Manage WebSocket connections for iOS app"""
-
     def __init__(self):
         self.active_connections: List[WebSocket] = []
 
@@ -30,106 +27,91 @@ class ConnectionManager:
         logger.info(f"Client connected, {len(self.active_connections)} clients")
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
         logger.info(f"Client disconnected, {len(self.active_connections)} clients")
 
     async def broadcast(self, message: Dict):
-        """Send message to all connected clients"""
-        dead_connections = []
-        for connection in self.active_connections:
+        dead = []
+        for conn in self.active_connections:
             try:
-                await connection.send_json(message)
+                await conn.send_json(message)
             except Exception as e:
-                logger.error(f"Error sending message: {e}")
-                dead_connections.append(connection)
+                logger.error(f"Broadcast error: {e}")
+                dead.append(conn)
+        for conn in dead:
+            self.disconnect(conn)
 
-        for connection in dead_connections:
-            self.disconnect(connection)
 
-
-# Global state
-manager = ConnectionManager()
-pnl_tracker: Optional[PnLTracker] = None
-risk_manager: Optional[RiskManager] = None
-bot_is_running = False
-active_symbols: Optional[List[str]] = None   # overrides settings.symbols_list when set
+# ── Global state ──────────────────────────────────────────────────────
+manager          = ConnectionManager()
+pnl_tracker:     Optional[PnLTracker]     = None
+risk_manager:    Optional[RiskManager]    = None
+options_tracker: Optional[OptionsTracker] = None
+bot_is_running   = False
+active_symbols:           Optional[List[str]] = None
+active_sell_put_symbols:  Optional[List[str]] = None
+active_credit_spread_symbols: Optional[List[str]] = None
 
 
 def create_app() -> FastAPI:
-    """Create FastAPI application"""
     app = FastAPI(
         title="Edge AI Scalping API",
         description="iOS remote control and monitoring API",
-        version="1.0"
+        version="1.0",
     )
 
     @app.on_event("startup")
     async def startup():
         logger.info(f"API server starting on {settings.api_host}:{settings.api_port}")
 
-    @app.on_event("shutdown")
-    async def shutdown():
-        logger.info("API server shutdown")
-
     @app.get("/health")
     async def health():
-        """Health check endpoint"""
         return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
     @app.get("/status")
-    async def get_status() -> BotStatus:
-        """Get current bot status"""
+    async def get_status():
         if risk_manager is None:
             raise HTTPException(status_code=503, detail="Risk manager not initialized")
-
         return BotStatus(
-            is_running=bot_is_running,
-            mode=settings.mode,
-            ready=True,
+            is_running=bot_is_running, mode=settings.mode, ready=True,
             equity=risk_manager.metrics.total_equity,
             cash=risk_manager.metrics.cash,
             daily_pnl=risk_manager.metrics.daily_pnl,
             positions=risk_manager.metrics.position_count,
-            trades_today=risk_manager.daily_trades
+            trades_today=risk_manager.daily_trades,
         )
 
     @app.get("/positions")
-    async def get_positions() -> List[PositionSnapshot]:
-        """Get open positions"""
+    async def get_positions():
         if pnl_tracker is None:
             raise HTTPException(status_code=503, detail="PnL tracker not initialized")
-
-        return [
-            PositionSnapshot(**trade)
-            for trade in pnl_tracker.get_open_trades()
-        ]
+        return [PositionSnapshot(**t) for t in pnl_tracker.get_open_trades()]
 
     @app.get("/pnl")
-    async def get_pnl() -> Dict:
-        """Get P&L stats"""
+    async def get_pnl():
         if pnl_tracker is None:
             raise HTTPException(status_code=503, detail="PnL tracker not initialized")
-
         return pnl_tracker.get_stats()
 
     @app.get("/risk")
-    async def get_risk() -> Dict:
-        """Get risk management status"""
+    async def get_risk():
         if risk_manager is None:
             raise HTTPException(status_code=503, detail="Risk manager not initialized")
-
         return risk_manager.get_status()
 
     @app.get("/symbols")
-    async def get_symbols() -> Dict:
-        """Return the currently active ticker list."""
-        syms = active_symbols if active_symbols is not None else settings.symbols_list
-        return {"symbols": syms}
+    async def get_symbols():
+        return {
+            "equity":        active_symbols or settings.symbols_list,
+            "sell_put":      active_sell_put_symbols or [],
+            "credit_spread": active_credit_spread_symbols or [],
+        }
 
     @app.post("/control")
     async def control(command: ControlCommand) -> Dict:
-        """Execute control command from iOS"""
         global bot_is_running, active_symbols
+        global active_sell_put_symbols, active_credit_spread_symbols
 
         if command.action == "start":
             bot_is_running = True
@@ -149,41 +131,87 @@ def create_app() -> FastAPI:
             if not command.symbols:
                 raise HTTPException(status_code=400, detail="symbols list is empty")
             active_symbols = [s.strip().upper() for s in command.symbols]
-            logger.info(f"Active symbols updated by iOS: {active_symbols}")
-            return {"status": "symbols_updated", "symbols": active_symbols, "note": "restart bot to subscribe new symbols"}
+            logger.info(f"Equity symbols updated: {active_symbols}")
+            return {"status": "symbols_updated", "symbols": active_symbols,
+                    "note": "restart bot to subscribe new symbols"}
+
+        elif command.action == "set_option_symbols":
+            params = command.parameters or {}
+            sp = params.get("sell_put", [])
+            cs = params.get("credit_spread", [])
+            active_sell_put_symbols      = [s.strip().upper() for s in sp]
+            active_credit_spread_symbols = [s.strip().upper() for s in cs]
+            logger.info(f"Sell-put symbols: {active_sell_put_symbols}")
+            logger.info(f"Credit-spread symbols: {active_credit_spread_symbols}")
+            return {
+                "status":          "option_symbols_updated",
+                "sell_put":        active_sell_put_symbols,
+                "credit_spread":   active_credit_spread_symbols,
+            }
 
         else:
             raise HTTPException(status_code=400, detail=f"Unknown action: {command.action}")
 
     @app.websocket("/ws/live")
     async def websocket_live(websocket: WebSocket):
-        """WebSocket endpoint for live updates"""
         await manager.connect(websocket)
-        logger.info("WebSocket client connected")
-
         try:
             while True:
                 if risk_manager and pnl_tracker:
                     open_trades = pnl_tracker.get_open_trades()
+
+                    # Best winning equity ticker
                     winning_ticker = None
                     if open_trades:
                         best = max(open_trades, key=lambda t: t["unrealized_pnl"])
                         if best["unrealized_pnl"] > 0:
                             winning_ticker = best["symbol"]
+
+                    # Option positions & stats
+                    sp_positions   = []
+                    cs_positions   = []
+                    dte_positions  = []
+                    sp_stats       = None
+                    cs_stats       = None
+                    dte_stats      = None
+                    winning_sp     = None
+                    winning_cs     = None
+                    winning_dte    = None
+
+                    if options_tracker:
+                        sp_positions  = options_tracker.get_sell_put_positions()
+                        cs_positions  = options_tracker.get_credit_spread_positions()
+                        dte_positions = options_tracker.get_zero_dte_positions()
+                        sp_stats      = options_tracker.get_sell_put_stats()
+                        cs_stats      = options_tracker.get_credit_spread_stats()
+                        dte_stats     = options_tracker.get_zero_dte_stats()
+                        winning_sp    = options_tracker.get_winning_sell_put()
+                        winning_cs    = options_tracker.get_winning_credit_spread()
+                        winning_dte   = options_tracker.get_winning_zero_dte()
+
                     update = {
                         "timestamp": datetime.now().isoformat(),
                         "bot_status": {
-                            "is_running": bot_is_running,
-                            "mode": settings.mode,
-                            "equity": risk_manager.metrics.total_equity,
-                            "cash": risk_manager.metrics.cash,
-                            "daily_pnl": risk_manager.metrics.daily_pnl,
-                            "positions": risk_manager.metrics.position_count,
-                            "trades_today": risk_manager.daily_trades
+                            "is_running":   bot_is_running,
+                            "mode":         settings.mode,
+                            "equity":       risk_manager.metrics.total_equity,
+                            "cash":         risk_manager.metrics.cash,
+                            "daily_pnl":    risk_manager.metrics.daily_pnl,
+                            "positions":    risk_manager.metrics.position_count,
+                            "trades_today": risk_manager.daily_trades,
                         },
-                        "positions": open_trades,
-                        "pnl": pnl_tracker.get_stats(),
-                        "winning_ticker": winning_ticker
+                        "positions":               open_trades,
+                        "pnl":                     pnl_tracker.get_stats(),
+                        "winning_ticker":           winning_ticker,
+                        "sell_put_positions":       sp_positions,
+                        "credit_spread_positions":  cs_positions,
+                        "zero_dte_positions":       dte_positions,
+                        "sell_put_stats":           sp_stats,
+                        "credit_spread_stats":      cs_stats,
+                        "zero_dte_stats":           dte_stats,
+                        "winning_sell_put":         winning_sp,
+                        "winning_credit_spread":    winning_cs,
+                        "winning_zero_dte":         winning_dte,
                     }
                     await websocket.send_json(update)
                 await asyncio.sleep(0.5)
@@ -193,35 +221,28 @@ def create_app() -> FastAPI:
             manager.disconnect(websocket)
 
     @app.get("/backtest/latest")
-    async def latest_backtest() -> Dict:
-        """Get latest backtest results"""
+    async def latest_backtest():
         return {
             "timestamp": datetime.now().isoformat(),
             "results": {
-                "sharpe_ratio": 1.5,
-                "max_drawdown": 0.08,
-                "win_rate": 0.55,
-                "total_trades": 125,
-                "status": "example (run backtest to populate)"
-            }
+                "sharpe_ratio": 1.5, "max_drawdown": 0.08,
+                "win_rate": 0.55, "total_trades": 125,
+                "status": "example (run backtest to populate)",
+            },
         }
 
     return app
 
 
-def set_dependencies(pnl: PnLTracker, risk: RiskManager):
-    """Inject dependencies (called by main.py)"""
-    global pnl_tracker, risk_manager
-    pnl_tracker = pnl
-    risk_manager = risk
+def set_dependencies(pnl: PnLTracker, risk: RiskManager, opts: Optional[OptionsTracker] = None):
+    global pnl_tracker, risk_manager, options_tracker
+    pnl_tracker     = pnl
+    risk_manager    = risk
+    options_tracker = opts
 
 
 if __name__ == "__main__":
     import uvicorn
     app = create_app()
-    uvicorn.run(
-        app,
-        host=settings.api_host,
-        port=settings.api_port,
-        log_level=settings.api_log_level
-    )
+    uvicorn.run(app, host=settings.api_host, port=settings.api_port,
+                log_level=settings.api_log_level)
