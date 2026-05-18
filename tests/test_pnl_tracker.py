@@ -1,3 +1,7 @@
+import json
+
+import numpy as np
+
 from engine.execution.pnl_tracker import PnLTracker
 
 
@@ -66,3 +70,15 @@ def test_win_rate():
     t.record_fill("B", "sell", 1, 90.0)   # loss
     stats = t.get_stats()
     assert stats["win_rate_pct"] == 50.0
+
+
+def test_stats_are_json_serializable_with_numpy_inputs():
+    t = PnLTracker()
+    t.record_fill("SPY", "buy", np.float32(10), np.float32(100.0))
+    t.update_market_prices("SPY", np.float32(101.0))
+
+    stats = t.get_stats()
+
+    assert stats["unrealized_pnl"] == 10.0
+    assert stats["open_trades"][0]["entry_price"] == 100.0
+    json.dumps(stats)

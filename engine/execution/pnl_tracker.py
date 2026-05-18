@@ -48,6 +48,8 @@ class PnLTracker:
 
     def record_fill(self, symbol: str, side: str, qty: float, price: float, order_id: str = ""):
         """Record an order fill"""
+        qty = float(qty)
+        price = float(price)
         fill = FillEvent(
             timestamp=datetime.now(),
             symbol=symbol,
@@ -100,6 +102,7 @@ class PnLTracker:
     def update_market_prices(self, symbol: str, current_price: float):
         """Update current price for open positions"""
         if symbol in self.trades:
+            current_price = float(current_price)
             trade = self.trades[symbol]
             trade.current_price = current_price
             trade.unrealized_pnl = (current_price - trade.entry_price) * trade.entry_qty
@@ -113,11 +116,11 @@ class PnLTracker:
 
     def get_unrealized_pnl(self) -> float:
         """Sum of unrealized P&L across all open trades"""
-        return sum(trade.unrealized_pnl for trade in self.trades.values())
+        return float(sum(trade.unrealized_pnl for trade in self.trades.values()))
 
     def get_total_pnl(self) -> float:
         """Total P&L (realized + unrealized)"""
-        return self.daily_stats["realized_pnl"] + self.get_unrealized_pnl()
+        return float(self.daily_stats["realized_pnl"] + self.get_unrealized_pnl())
 
     def get_open_trades(self) -> List[Dict]:
         """Get all open trades"""
@@ -125,11 +128,11 @@ class PnLTracker:
             {
                 "symbol": trade.symbol,
                 "entry_time": trade.entry_time.isoformat(),
-                "entry_price": trade.entry_price,
-                "qty": trade.entry_qty,
-                "current_price": trade.current_price,
-                "unrealized_pnl": trade.unrealized_pnl,
-                "unrealized_pnl_pct": trade.unrealized_pnl_pct,
+                "entry_price": float(trade.entry_price),
+                "qty": float(trade.entry_qty),
+                "current_price": float(trade.current_price),
+                "unrealized_pnl": float(trade.unrealized_pnl),
+                "unrealized_pnl_pct": float(trade.unrealized_pnl_pct),
                 "bars_held": trade.bars_held
             }
             for trade in self.trades.values()
@@ -144,7 +147,7 @@ class PnLTracker:
         )
 
         return {
-            "realized_pnl": self.daily_stats["realized_pnl"],
+            "realized_pnl": float(self.daily_stats["realized_pnl"]),
             "unrealized_pnl": self.get_unrealized_pnl(),
             "total_pnl": self.get_total_pnl(),
             "winning_trades": self.daily_stats["winning_trades"],

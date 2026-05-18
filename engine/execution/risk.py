@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -124,11 +124,7 @@ class RiskManager:
         logger.warning(f"Consecutive losses: {self.consecutive_loss_count}")
 
         if self.consecutive_loss_count >= self.config.cooldown_trades:
-            self.cooldown_until = datetime.now()
-            import timedelta
-            self.cooldown_until = self.cooldown_until.replace(
-                second=self.cooldown_until.second + self.config.cooldown_minutes * 60
-            )
+            self.cooldown_until = datetime.now() + timedelta(minutes=self.config.cooldown_minutes)
             logger.warning(f"Entering cooldown period until {self.cooldown_until.isoformat()}")
 
     def on_trade_win(self):
